@@ -1,8 +1,8 @@
-a = 357;
-b = 42331;
-c = 93;
-
+test
+#ifndef __TEST_H
+#include"test.jh"
+#include   <test2.jh>
+#endif
 int main() {
-    return 
-    1;
+
 }

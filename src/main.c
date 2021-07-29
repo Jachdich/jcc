@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include "../include/reader.h"
 #include "../include/lexer.h"
+#include "../include/preprocessor.h"
 
 const char *toktostr(LexTokenType tok) {
     switch (tok) {
@@ -45,6 +46,9 @@ int main(int argc, char **argv) {
         return err;
     }
 
+
+    /*
+
     LexTokenStream s;
     int lex_err = lex_read_tokens(&s, &r);
     if (lex_err != 0) {
@@ -56,8 +60,15 @@ int main(int argc, char **argv) {
         t = lex_consume(&s);
         printf("type: %s, i: %lu, str: %s\n", toktostr(t->type), t->i, t->str);
     } while (t->type != TOK_EOF);
-
-    lex_free(&s);
+*/
+    //lex_free(&s);
+    char *output = preprocess_includes(&r);
     reader_free(&r);
+    if (output == NULL) {
+        printf("Some kind of error happened lol\n");
+        return 1;
+    }
+    printf("%s\n", output);
+    free(output);
     return 0;
 }

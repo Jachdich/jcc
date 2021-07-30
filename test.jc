@@ -1,8 +1,4 @@
-test
-#ifndef __TEST_H
-#include"test.jh"
-#include   <test2.jh>
-#endif
-int main() {
-
-}
+#define TEST_DEFINE
+#include "test.jh"
+#define A 42
+printf("asdf%d\n", A);

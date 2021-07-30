@@ -1,5 +1,9 @@
-this is
-a header file
-for the program lol
-idk if
-this will work
+#ifndef __TEST_JH
+#define __TEST_JH
+
+int a = 3;
+#ifdef TEST_DEFINE
+int b = 69;
+#endif
+
+#endif

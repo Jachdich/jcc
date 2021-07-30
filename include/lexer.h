@@ -5,6 +5,7 @@
 
 enum LexTokenType {
     TOK_INT,
+    TOK_STR_LIT,
     TOK_IDENT,
     TOK_ADD,
     TOK_SUB,
@@ -25,6 +26,8 @@ enum LexTokenType {
     TOK_OBRACE,
     TOK_CBRACE,
     TOK_SEMICOLON,
+    TOK_COMMA,
+    TOK_PREPROC,
     TOK_EOF,
     TOK_INVALID,
 };
@@ -53,4 +56,11 @@ LexToken *lex_consume(LexTokenStream *s);
 LexToken *lex_peek(LexTokenStream *s);
 void lex_free(LexTokenStream *s);
 void lex_free_token(LexToken *t);
+int lex_tokenise_line(Reader *line, LexTokenStream *s);
+void lex_print_tokens(LexTokenStream *s);
+void lex_append_token(LexTokenStream *s, LexToken t);
+void lex_init(LexTokenStream *s);
+char *lex_reconstruct_src(LexTokenStream *s);
+void lex_extend_tokens(LexTokenStream *s, LexTokenStream *src);
+//LexToken lex_clone_token(LexToken *t);
 #endif

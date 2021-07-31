@@ -63,4 +63,5 @@ void lex_init(LexTokenStream *s);
 char *lex_reconstruct_src(LexTokenStream *s);
 void lex_extend_tokens(LexTokenStream *s, LexTokenStream *src);
 //LexToken lex_clone_token(LexToken *t);
+const char *toktostr(LexTokenType tok);
 #endif

@@ -3,6 +3,7 @@
 #include "../include/reader.h"
 #include "../include/lexer.h"
 #include "../include/preprocessor.h"
+#include "../include/parser.h"
 
 int main(int argc, char **argv) {
     if (argc < 2) {
@@ -41,6 +42,16 @@ int main(int argc, char **argv) {
     char *src = lex_reconstruct_src(&s);
     printf("%s\n", src);
     free(src);
+
+    AST *ast = malloc(sizeof(AST));
+    int ast_err = ast_gen(ast, &s);
+    if (ast_err != 0) {
+        fprintf(stderr, "%s: Parser returned non-zero status %d\n", argv[0], ast_err);
+        return ast_err;
+    }
+    
+    ast_print(ast);
+    ast_free(ast);
     lex_free(&s);
     reader_free(&preproc_r);
     return 0;

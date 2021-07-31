@@ -3,6 +3,7 @@
 #include "test.jh"
 #include "test.jh"
 #define A 42
+#define A 420
 
 int main() {
     printf("asdf%d\n", A);

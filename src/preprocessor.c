@@ -37,6 +37,14 @@ char *map_find(StrMap *m, char *key) {
     return NULL;
 }
 
+void map_replace(StrMap *m, char *key, char *val) {
+    for (size_t i = 0; i < m->size; i++) {
+        if (strcmp(key, m->keys[i]) == 0) {
+            m->vals[i] = val;
+        }
+    }
+}
+
 void map_put(StrMap *m, char *key, char *val) {
     m->keys[m->size] = key;
     m->vals[m->size] = val;
@@ -113,7 +121,9 @@ void preprocess_tokens_internal(LexTokenStream *input, StrMap *defines) {
                 char *val = malloc(strlen(str));
                 strcpy(val, str);
                 if (map_find(defines, ident) != NULL) {
-                    //fuck
+                    char *orig = map_find(defines, ident);
+                    map_replace(defines, ident, val);
+                    free(orig);
                 } else {
                     map_put(defines, ident, val);
                 }

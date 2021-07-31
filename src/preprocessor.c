@@ -48,8 +48,6 @@ void map_put(StrMap *m, char *key, char *val) {
     }
 }
 
-typedef struct State State;
-
 char *get_ident(char **str) {
     while (**str == ' ') { (*str)++; };
     char *start = *str;
@@ -90,10 +88,17 @@ LexTokenStream read_until_closing(LexTokenStream *input) {
     return out;
 }
 
+void preprocess_tokens_internal(LexTokenStream *input, StrMap *defines);
+
 void preprocess_tokens(LexTokenStream *input) {
-    input->pos = input->start;
     StrMap defines;
     map_init(&defines);
+    preprocess_tokens_internal(input, &defines);
+    map_free(&defines);
+}
+
+void preprocess_tokens_internal(LexTokenStream *input, StrMap *defines) {
+    input->pos = input->start;
     LexToken *tok;
     LexTokenStream out;
     lex_init(&out);
@@ -107,20 +112,34 @@ void preprocess_tokens(LexTokenStream *input) {
 
                 char *val = malloc(strlen(str));
                 strcpy(val, str);
-                map_put(&defines, ident, val);
+                if (map_find(defines, ident) != NULL) {
+                    //fuck
+                } else {
+                    map_put(defines, ident, val);
+                }
             } else if (strncmp(tok->str, "#ifdef", 6) == 0) {
                 char *str = tok->str + 6;
                 char *ident = get_ident(&str);
                 LexTokenStream between = read_until_closing(input);
                 between.pos = between.start;
-                if (map_find(&defines, ident) != NULL) {
-                    preprocess_tokens(&between);
+                if (map_find(defines, ident) != NULL) {
+                    preprocess_tokens_internal(&between, defines);
+                    lex_extend_tokens(&out, &between);
+                }
+                free(ident);
+            } else if (strncmp(tok->str, "#ifndef", 6) == 0) {
+                char *str = tok->str + 7;
+                char *ident = get_ident(&str);
+                LexTokenStream between = read_until_closing(input);
+                between.pos = between.start;
+                if (map_find(defines, ident) == NULL) {
+                    preprocess_tokens_internal(&between, defines);
                     lex_extend_tokens(&out, &between);
                 }
                 free(ident);
             }
         } else if (tok->type == TOK_IDENT) {
-            char *found = map_find(&defines, tok->str);
+            char *found = map_find(defines, tok->str);
             if (found != NULL) {
                 LexTokenStream s;
                 lex_init(&s);
@@ -148,7 +167,6 @@ void preprocess_tokens(LexTokenStream *input) {
             tok->str = NULL;
         }
     }
-    map_free(&defines);
     lex_free(input);
     lex_append_token(&out, (LexToken){NULL, 0, TOK_EOF});
     input->start = out.start;
@@ -192,6 +210,7 @@ char *preprocess_includes(Reader *input) {
             size_t delta = ptr - output;
             size_t reader_bytes = reader_bytes_left(&r);
             output = realloc(output, curr_bytes + reader_bytes);
+            curr_bytes += reader_bytes;
             ptr = output + delta;
             strncpy(ptr, r.start, reader_bytes);
             reader_free(&r);

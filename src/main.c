@@ -27,6 +27,7 @@ int main(int argc, char **argv) {
     Reader preproc_r;
     reader_construct_from(&preproc_r, preprocessed);
 
+
     LexTokenStream s;
     lex_init(&s);
     int lex_err = lex_read_tokens(&s, &preproc_r);

@@ -235,7 +235,7 @@ char *lex_reconstruct_src(LexTokenStream *s) {
             case TOK_DIV_ASSIGN: strcat_alloc(&out, "/= ", &outsz, &outpos); break;
             case TOK_OPAREN:     strcat_alloc(&out, "(", &outsz, &outpos); break;
             case TOK_CPAREN:     strcat_alloc(&out, ")", &outsz, &outpos); break;
-            case TOK_OBRACE:     strcat_alloc(&out, "{", &outsz, &outpos); break;
+            case TOK_OBRACE:     strcat_alloc(&out, "{\n", &outsz, &outpos); break;
             case TOK_CBRACE:     strcat_alloc(&out, "}", &outsz, &outpos); break;
             case TOK_SEMICOLON:  strcat_alloc(&out, ";\n", &outsz, &outpos); break;
             case TOK_COMMA:      strcat_alloc(&out, ", ", &outsz, &outpos); break;

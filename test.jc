@@ -1,4 +1,9 @@
+#define TEST2_DEFINE
 #define TEST_DEFINE
 #include "test.jh"
+#include "test.jh"
 #define A 42
-printf("asdf%d\n", A);
+
+int main() {
+    printf("asdf%d\n", A);
+}

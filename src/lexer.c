@@ -18,7 +18,7 @@ void lex_append_token(LexTokenStream *s, LexToken t) {
     }
 }
 
-LexToken lex_read_token(Reader *r) {
+Error lex_read_token(Reader *r, LexToken *tok) {
     while (isspace(reader_peek(r))) { 
         reader_consume(r);
     }
@@ -28,7 +28,7 @@ LexToken lex_read_token(Reader *r) {
         while (isdigit(reader_peek(r))) {
             i = i * 10 + (reader_consume(r) - '0');
         }
-        return (LexToken){NULL, i, TOK_INT};
+        *tok = (LexToken){NULL, i, TOK_INT};
     } else if (isalpha(reader_peek(r)) || reader_peek(r) == '_') {
         char *start = r->pos;
         while (isalnum(reader_peek(r)) || reader_peek(r) == '_') {
@@ -38,73 +38,79 @@ LexToken lex_read_token(Reader *r) {
         char *str = malloc(sz + 1);
         strncpy(str, start, sz);
         str[sz] = 0;
-        return (LexToken){str, 0, TOK_IDENT};
+        *tok = (LexToken){str, 0, TOK_IDENT};
     } else if (reader_peek(r) == '"') {
         reader_consume(r);
         char *start = r->pos;
         while (reader_consume(r) != '"') {
             if (reader_bytes_left(r) <= 0) {
-                fprintf(stderr, "EOL whilst scanning literal");
-                return (LexToken){NULL, 0, TOK_INVALID};
+                *tok = (LexToken){NULL, 0, TOK_INVALID};
+                return (Error){1, "EOL whilst scanning literal"};
             }
         }
         size_t sz = r->pos - start;
         char *str = malloc(sz);
         strncpy(str, start, sz - 1);
         str[sz - 1] = 0;
-        return (LexToken){str, 0, TOK_STR_LIT};
+        *tok = (LexToken){str, 0, TOK_STR_LIT};
     } else if (reader_peek(r) == '=') {
         reader_consume(r);
         if (reader_peek(r) == '=') {
             reader_consume(r);
-            return (LexToken){NULL, 0, TOK_COMPARE};
+            *tok = (LexToken){NULL, 0, TOK_COMPARE};
         } else {
-            return (LexToken){NULL, 0, TOK_ASSIGN};
+            *tok = (LexToken){NULL, 0, TOK_ASSIGN};
         }
     } else if (reader_peek(r) == ';') {
         reader_consume(r);
-        return (LexToken){NULL, 0, TOK_SEMICOLON};
+        *tok = (LexToken){NULL, 0, TOK_SEMICOLON};
     } else if (reader_peek(r) == '{') {
         reader_consume(r);
-        return (LexToken){NULL, 0, TOK_OBRACE};
+        *tok = (LexToken){NULL, 0, TOK_OBRACE};
     } else if (reader_peek(r) == '}') {
         reader_consume(r);
-        return (LexToken){NULL, 0, TOK_CBRACE};
+        *tok = (LexToken){NULL, 0, TOK_CBRACE};
     } else if (reader_peek(r) == '(') {
         reader_consume(r);
-        return (LexToken){NULL, 0, TOK_OPAREN};
+        *tok = (LexToken){NULL, 0, TOK_OPAREN};
     } else if (reader_peek(r) == ')') {
         reader_consume(r);
-        return (LexToken){NULL, 0, TOK_CPAREN};
+        *tok = (LexToken){NULL, 0, TOK_CPAREN};
     } else if (reader_peek(r) == ',') {
         reader_consume(r);
-        return (LexToken){NULL, 0, TOK_COMMA};
-    } else if (reader_consume_if(r, '+')) { return (LexToken){NULL, 0, TOK_ADD};
-    } else if (reader_consume_if(r, '-')) { return (LexToken){NULL, 0, TOK_SUB};
-    } else if (reader_consume_if(r, '*')) { return (LexToken){NULL, 0, TOK_MUL};
-    } else if (reader_consume_if(r, '/')) { return (LexToken){NULL, 0, TOK_DIV};
+        *tok = (LexToken){NULL, 0, TOK_COMMA};
+    } else if (reader_consume_if(r, '+')) { *tok = (LexToken){NULL, 0, TOK_ADD};
+    } else if (reader_consume_if(r, '-')) { *tok = (LexToken){NULL, 0, TOK_SUB};
+    } else if (reader_consume_if(r, '*')) { *tok = (LexToken){NULL, 0, TOK_MUL};
+    } else if (reader_consume_if(r, '/')) { *tok = (LexToken){NULL, 0, TOK_DIV};
     } else {
-        reader_consume(r);
-        return (LexToken){NULL, 0, TOK_INVALID};
+        *tok = (LexToken){NULL, 0, TOK_INVALID};
+        char *buf = malloc(40);
+        sprintf(buf, "Invalid character '%c' in input stream", reader_consume(r));
+        return (Error){1, buf};
+        
     }
+    return (Error){0, NULL};
 }
 
-int lex_tokenise_line(Reader *line, LexTokenStream *s) {
+Error lex_tokenise_line(Reader *line, LexTokenStream *s) {
     if (reader_peek(line) == '#') {
         size_t bytes = reader_bytes_left(line);
         char *str = malloc(bytes + 1);
         strncpy(str, line->start, bytes);
         str[bytes] = 0;
         lex_append_token(s, (LexToken){str, 0, TOK_PREPROC});
-        return 0;
+        return (Error){0, NULL};
     }
     while (reader_bytes_left(line) > 0) {
-        lex_append_token(s, lex_read_token(line));
+        LexToken t;
+        lex_read_token(line, &t);
+        lex_append_token(s, t);
     }
-    return 0;
+    return (Error){0, NULL};
 }
 
-int lex_read_tokens(LexTokenStream *s, Reader *reader) {
+Error lex_read_tokens(LexTokenStream *s, Reader *reader) {
     while (reader_bytes_left(reader) > 0) {
         char *line = reader_read_line(reader);
         Reader r;
@@ -116,7 +122,7 @@ int lex_read_tokens(LexTokenStream *s, Reader *reader) {
     token.type = TOK_EOF;
     *(s->pos) = token;
     s->pos = s->start;
-    return 0;
+    return (Error){0, NULL};
 }
 
 void lex_init(LexTokenStream *s) {

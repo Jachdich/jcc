@@ -31,12 +31,21 @@ int main(int argc, char **argv) {
 
     LexTokenStream s;
     lex_init(&s);
-    int lex_err = lex_read_tokens(&s, &preproc_r);
-    if (lex_err != 0) {
-        fprintf(stderr, "%s: Lexer returned non-zero status %d\n", argv[0], lex_err);
-        return lex_err;
+    Error lex_err = lex_read_tokens(&s, &preproc_r);
+    if (lex_err.status_code != 0) {
+        fprintf(stderr, "%s: %s\n", argv[0], lex_err.message);
+        error_free(&lex_err);
+        return lex_err.status_code;
     }
-    preprocess_tokens(&s);
+    error_free(&lex_err);
+    
+    Error preproc_err = preprocess_tokens(&s);
+    if (preproc_err.status_code != 0) {
+        fprintf(stderr, "%s: %s\n", argv[0], preproc_err.message);
+        error_free(&preproc_err);
+        return preproc_err.status_code;
+    }
+    error_free(&preproc_err);
 
     lex_print_tokens(&s);
     char *src = lex_reconstruct_src(&s);

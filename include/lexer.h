@@ -1,9 +1,11 @@
 #ifndef __LEXER_H
 #define __LEXER_H
 #include "../include/reader.h"
+#include "../include/error.h"
 #include <stdint.h>
 
 enum LexTokenType {
+    TOK_INVALID,
     TOK_INT,
     TOK_STR_LIT,
     TOK_IDENT,
@@ -29,7 +31,6 @@ enum LexTokenType {
     TOK_COMMA,
     TOK_PREPROC,
     TOK_EOF,
-    TOK_INVALID,
 };
 
 typedef enum LexTokenType LexTokenType;
@@ -51,12 +52,12 @@ struct LexTokenStream {
 typedef struct LexTokenStream LexTokenStream;
 
 
-int lex_read_tokens(LexTokenStream *s, Reader *reader);
+Error lex_read_tokens(LexTokenStream *s, Reader *reader);
 LexToken *lex_consume(LexTokenStream *s);
 LexToken *lex_peek(LexTokenStream *s);
 void lex_free(LexTokenStream *s);
 void lex_free_token(LexToken *t);
-int lex_tokenise_line(Reader *line, LexTokenStream *s);
+Error lex_tokenise_line(Reader *line, LexTokenStream *s);
 void lex_print_tokens(LexTokenStream *s);
 void lex_append_token(LexTokenStream *s, LexToken t);
 void lex_init(LexTokenStream *s);

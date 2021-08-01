@@ -7,7 +7,7 @@ typedef struct AST AST;
 
 struct AST {
     AST *parent;
-    AST *children;
+    AST **children;
     size_t children_n;
     LexToken *tok;
 };

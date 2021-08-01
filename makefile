@@ -12,7 +12,7 @@ obj/%.o: src/%.c $(HEADERS)
 debug: jcc
 	gdb jcc
 
-run: server
+run: jcc
 	./jcc test.jc
 
 clean:

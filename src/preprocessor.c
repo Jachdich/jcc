@@ -69,9 +69,7 @@ char *get_ident(char **str) {
     return ident;
 }
 
-LexTokenStream read_until_closing(LexTokenStream *input) {
-    LexTokenStream out;
-    lex_init(&out);
+Error read_until_closing(LexTokenStream *input, LexTokenStream *out) {
     int opening = 1;
     int closing = 0;
     LexToken *t = lex_peek(input);
@@ -85,27 +83,28 @@ LexTokenStream read_until_closing(LexTokenStream *input) {
             }
         }
         if (opening != closing) {
-            lex_append_token(&out, *t);
+            lex_append_token(out, *t);
         }
         t->str = NULL;
     }
     if (t->type == TOK_EOF) {
-        fprintf(stderr, "Error: unclosed #if"); //TODO better errors lol
+        return error_construct(1, "Error: unclosed #if");
     }
-    lex_append_token(&out, (LexToken){NULL, 0, TOK_EOF});
-    return out;
+    lex_append_token(out, (LexToken){NULL, 0, TOK_EOF});
+    return (Error){0, NULL};
 }
 
-void preprocess_tokens_internal(LexTokenStream *input, StrMap *defines);
+Error preprocess_tokens_internal(LexTokenStream *input, StrMap *defines);
 
-void preprocess_tokens(LexTokenStream *input) {
+Error preprocess_tokens(LexTokenStream *input) {
     StrMap defines;
     map_init(&defines);
-    preprocess_tokens_internal(input, &defines);
+    Error e =  preprocess_tokens_internal(input, &defines);
     map_free(&defines);
+    return e;
 }
 
-void preprocess_tokens_internal(LexTokenStream *input, StrMap *defines) {
+Error preprocess_tokens_internal(LexTokenStream *input, StrMap *defines) {
     input->pos = input->start;
     LexToken *tok;
     LexTokenStream out;
@@ -130,7 +129,10 @@ void preprocess_tokens_internal(LexTokenStream *input, StrMap *defines) {
             } else if (strncmp(tok->str, "#ifdef", 6) == 0) {
                 char *str = tok->str + 6;
                 char *ident = get_ident(&str);
-                LexTokenStream between = read_until_closing(input);
+                LexTokenStream between;
+                lex_init(&between);
+                Error err = read_until_closing(input, &between);
+                if (err.status_code != 0) return err;
                 between.pos = between.start;
                 if (map_find(defines, ident) != NULL) {
                     preprocess_tokens_internal(&between, defines);
@@ -140,7 +142,10 @@ void preprocess_tokens_internal(LexTokenStream *input, StrMap *defines) {
             } else if (strncmp(tok->str, "#ifndef", 6) == 0) {
                 char *str = tok->str + 7;
                 char *ident = get_ident(&str);
-                LexTokenStream between = read_until_closing(input);
+                LexTokenStream between;
+                lex_init(&between);
+                Error err = read_until_closing(input, &between);
+                if (err.status_code != 0) return err;
                 between.pos = between.start;
                 if (map_find(defines, ident) == NULL) {
                     preprocess_tokens_internal(&between, defines);
@@ -182,6 +187,7 @@ void preprocess_tokens_internal(LexTokenStream *input, StrMap *defines) {
     input->start = out.start;
     input->pos = out.start;
     input->capacity = out.capacity;
+    return (Error){0, NULL};
 }
 
 char *preprocess_includes(Reader *input) {

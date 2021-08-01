@@ -4,18 +4,22 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+AST *ast_construct(AST **children, size_t children_n, LexToken *tok) {
+    AST *ast = malloc(sizeof(AST));
+    ast->parent = NULL;
+    ast->children = children;
+    ast->children_n = children_n;
+    ast->tok = tok;
+    return ast;
+}
+
 AST *number(LexTokenStream *s) {
     LexTokenType type = lex_peek(s)->type;
     if (type == TOK_INT) {
-        AST *ast = malloc(sizeof(AST));
-        ast->parent = NULL;
-        ast->children = NULL;
-        ast->children_n = 0;
-        ast->tok = lex_consume(s);
-        return ast;
+        return ast_construct(NULL, 0, lex_consume(s));
     } else {
         fprintf(stderr, "Error: expected int, got %s\n", toktostr(type));
-        //exit(0);
+        exit(0);
     }
 }
 
@@ -24,26 +28,26 @@ AST *mulexpr(LexTokenStream *s) {
     LexTokenType type = lex_peek(s)->type;
     if (type == TOK_EOF) {
         return lhs;
-    } else if (type == TOK_MUL || type == TOK_DIV) {
-        while (1) {
-            LexToken *oper = lex_consume(s);
-            AST *rhs = number(s);
-            AST *tmp = malloc(sizeof(AST));
-            tmp->children = malloc(sizeof(AST) * 2);
-            tmp->children_n = 2;
-            tmp->tok = oper;
-            tmp->children[0] = *lhs;
-            tmp->children[1] = *rhs;
-            free(lhs);
-            free(rhs);
-            lhs = tmp;
-            if (oper->type == TOK_EOF) break;
-        }
-        return lhs;
-    } else {
-        //fprintf(stderr, "Error: expected * or /, got %s\n", toktostr(type));
-        return lhs;
     }
+    
+    while (type == TOK_MUL || type == TOK_DIV) {
+        LexToken *oper = lex_consume(s);
+        AST *rhs = number(s);
+        AST *tmp = malloc(sizeof(AST));
+        tmp->children = malloc(sizeof(AST*) * 2);
+        tmp->children_n = 2;
+        tmp->tok = oper;
+        tmp->children[0] = lhs;
+        tmp->children[1] = rhs;
+        lhs = tmp;
+        if (lex_peek(s)->type == TOK_EOF) break;
+    }
+    
+    return lhs;
+    //} else {
+    //    fprintf(stderr, "Error: expected * or /, got %s\n", toktostr(type));
+    //    //return lhs;
+    //}
 }
 
 AST *expr(LexTokenStream *s) {
@@ -56,15 +60,14 @@ AST *expr(LexTokenStream *s) {
             LexToken *oper = lex_consume(s);
             AST *rhs = mulexpr(s);
             AST *tmp = malloc(sizeof(AST));
-            tmp->children = malloc(sizeof(AST) * 2);
+            tmp->children = malloc(sizeof(AST*) * 2);
             tmp->children_n = 2;
             tmp->tok = oper;
-            tmp->children[0] = *lhs;
-            tmp->children[1] = *rhs;
-            free(lhs);
-            free(rhs);
+            tmp->children[0] = lhs;
+            tmp->children[1] = rhs;
             lhs = tmp;
-            if (oper->type == TOK_EOF) break;
+            printf("TYPE IN EXPR: %d %s\n", oper->type, toktostr(oper->type));
+            if (lex_peek(s)->type == TOK_EOF) break;
         }
         return lhs;
     } else {
@@ -97,7 +100,7 @@ void ast_print_internal(AST *ast, int n) {
     }
     printf("%s\n", type);
     for (size_t i = 0; i < ast->children_n; i++) {
-        ast_print_internal(ast->children + i, n + 1);
+        ast_print_internal(ast->children[i], n + 1);
     }
 }
 
@@ -108,7 +111,7 @@ void ast_print(AST *ast) {
 void ast_free(AST *ast) {
     if (ast->children != NULL && ast->children_n > 0) {
         for (size_t i = 0; i < ast->children_n; i++) {
-            ast_free(ast->children + i);
+            ast_free(ast->children[i]);
         }
         free(ast->children);
     }

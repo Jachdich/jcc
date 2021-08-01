@@ -16,5 +16,6 @@ char reader_consume(Reader *r);
 char *reader_read_line(Reader *r);
 void reader_free(Reader *r);
 size_t reader_bytes_left(Reader *r);
+int reader_consume_if(Reader *r, char c);
 
 #endif

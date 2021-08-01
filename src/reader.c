@@ -56,3 +56,11 @@ char *reader_read_line(Reader *r) {
 size_t reader_bytes_left(Reader *r) {
     return r->len - (r->pos - r->start);
 }
+
+int reader_consume_if(Reader *r, char c) {
+    if (reader_peek(r) == c) {
+        reader_consume(r);
+        return 1;
+    }
+    return 0;   
+}

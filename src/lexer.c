@@ -79,6 +79,10 @@ LexToken lex_read_token(Reader *r) {
     } else if (reader_peek(r) == ',') {
         reader_consume(r);
         return (LexToken){NULL, 0, TOK_COMMA};
+    } else if (reader_consume_if(r, '+')) { return (LexToken){NULL, 0, TOK_ADD};
+    } else if (reader_consume_if(r, '-')) { return (LexToken){NULL, 0, TOK_SUB};
+    } else if (reader_consume_if(r, '*')) { return (LexToken){NULL, 0, TOK_MUL};
+    } else if (reader_consume_if(r, '/')) { return (LexToken){NULL, 0, TOK_DIV};
     } else {
         reader_consume(r);
         return (LexToken){NULL, 0, TOK_INVALID};

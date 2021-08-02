@@ -1,6 +1,5 @@
 #ifndef __TEST_JH
 #define __TEST_JH
-
 int a = 3;
 #ifdef TEST_DEFINE
 #ifdef TEST2_DEFINE
@@ -8,5 +7,4 @@ int b = 69;
 #endif
 int c = 420;
 #endif
-
 #endif

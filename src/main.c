@@ -4,6 +4,7 @@
 #include "../include/lexer.h"
 #include "../include/preprocessor.h"
 #include "../include/parser.h"
+#include "../include/codegen.h"
 
 int main(int argc, char **argv) {
     if (argc < 2) {
@@ -19,6 +20,7 @@ int main(int argc, char **argv) {
     }
 
     char *preprocessed = preprocess_includes(&r);
+    printf("%s\n\n\n", preprocessed);
     reader_free(&r);
     if (preprocessed == NULL) {
         printf("Some kind of error happened lol\n");
@@ -27,7 +29,6 @@ int main(int argc, char **argv) {
 
     Reader preproc_r;
     reader_construct_from(&preproc_r, preprocessed);
-
 
     LexTokenStream s;
     lex_init(&s);
@@ -60,6 +61,7 @@ int main(int argc, char **argv) {
     }
     
     ast_print(ast);
+    cg_gen(ast, NULL);
     ast_free(ast);
     lex_free(&s);
     reader_free(&preproc_r);

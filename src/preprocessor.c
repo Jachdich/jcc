@@ -225,12 +225,15 @@ char *preprocess_includes(Reader *input) {
             
             size_t delta = ptr - output;
             size_t reader_bytes = reader_bytes_left(&r);
-            output = realloc(output, curr_bytes + reader_bytes);
+            output = realloc(output, curr_bytes + reader_bytes + 1 /*for \n*/);
             curr_bytes += reader_bytes;
             ptr = output + delta;
             strncpy(ptr, r.start, reader_bytes);
             reader_free(&r);
             ptr += reader_bytes;
+
+            //add a \n in case the file doesn't already have one, otherwise bad things happen
+            *ptr++ = '\n'; 
             
         } else {
             strcpy(ptr, line);

@@ -5,11 +5,26 @@
 struct AST;
 typedef struct AST AST;
 
+enum ASTType {
+    AST_ADD,
+    AST_SUB,
+    AST_MUL,
+    AST_DIV,
+    AST_INTLIT,
+    AST_STRLIT,
+    AST_ASSIGN,
+    AST_IDENT,
+    AST_KINT,
+};
+
+typedef enum ASTType ASTType;
+
 struct AST {
-    AST *parent;
     AST **children;
     size_t children_n;
-    LexToken *tok;
+    ASTType type;
+    size_t i;
+    char *str;
 };
 
 int ast_gen(AST * ast, LexTokenStream *s);

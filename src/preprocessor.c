@@ -63,7 +63,7 @@ char *get_ident(char **str) {
         (*str)++;
     }
     size_t sz = *str - start;
-    char *ident = malloc(sz);
+    char *ident = malloc(sz + 1);
     strncpy(ident, start, sz);
     ident[sz] = 0;
     return ident;
@@ -117,7 +117,7 @@ Error preprocess_tokens_internal(LexTokenStream *input, StrMap *defines) {
                 char *ident = get_ident(&str);
                 while (*str == ' ') { str++; };
 
-                char *val = malloc(strlen(str));
+                char *val = malloc(strlen(str) + 1);
                 strcpy(val, str);
                 if (map_find(defines, ident) != NULL) {
                     char *orig = map_find(defines, ident);
@@ -191,7 +191,7 @@ Error preprocess_tokens_internal(LexTokenStream *input, StrMap *defines) {
 }
 
 char *preprocess_includes(Reader *input) {
-    char *output = malloc(reader_bytes_left(input));
+    char *output = malloc(reader_bytes_left(input) + 1 /*for null term*/);
     size_t curr_bytes = reader_bytes_left(input);
     char *ptr = output;
     while (reader_bytes_left(input) > 0) {

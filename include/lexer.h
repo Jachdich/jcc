@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 enum LexTokenType {
-    TOK_INVALID,
+    TOK_INVALID = 0,
     TOK_INT,
     TOK_STR_LIT,
     TOK_IDENT,
@@ -30,6 +30,30 @@ enum LexTokenType {
     TOK_SEMICOLON,
     TOK_COMMA,
     TOK_PREPROC,
+    TOK_AND,
+    TOK_ANDAND,
+    TOK_OR,
+    TOK_OROR,
+
+    TOK_KINT,
+    TOK_KCHAR,
+    TOK_KSTRUCT,
+    TOK_KVOID,
+    TOK_KENUM,
+    TOK_KLONG,
+    TOK_KSHORT,
+    TOK_KRETURN,
+    TOK_KIF,
+    TOK_KELSE,
+    TOK_KDO,
+    TOK_KWHILE,
+    TOK_KFOR,
+    TOK_KSWITCH,
+    TOK_KCASE,
+    TOK_KBREAK,
+    TOK_KCONTINUE,
+    TOK_KTYPEDEF,
+    
     TOK_EOF,
 };
 
@@ -37,7 +61,7 @@ typedef enum LexTokenType LexTokenType;
 
 struct LexToken {
     char *str;
-    int64_t i;
+    size_t i;
     LexTokenType type;
 };
 

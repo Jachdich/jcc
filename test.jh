@@ -1,10 +1,10 @@
 #ifndef __TEST_JH
 #define __TEST_JH
-int a = 3;
+1 + 2
 #ifdef TEST_DEFINE
 #ifdef TEST2_DEFINE
-int b = 69;
++ 3
 #endif
-int c = 420;
++4
 #endif
 #endif

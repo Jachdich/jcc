@@ -9,11 +9,6 @@
 //maximum length a 64 bit int can be when converted to str
 #define MAXINTSTRLEN 20
 
-struct Symbol {
-    char *name;
-};
-typedef struct Symbol Symbol;
-
 struct CGState {
     char *code;
     size_t code_len;
@@ -21,8 +16,6 @@ struct CGState {
     size_t num_regs;
     char *regs_free;
     char **reg_names;
-
-    Symbol *sym_n;
 };
 
 typedef struct CGState CGState;
@@ -118,7 +111,7 @@ void cgprintint(CGState *state, int reg) {
 int gen_ast(AST *ast, CGState *state) {
     int *ch_regs;
     if (ast->children_n > 0) {
-    ch_regs = malloc(sizeof(int) * ast->children_n);
+        ch_regs = malloc(sizeof(int) * ast->children_n);
         for (size_t i = 0; i < ast->children_n; i++) {
            ch_regs[i] = gen_ast(ast->children[i], state);
         }
@@ -131,8 +124,11 @@ int gen_ast(AST *ast, CGState *state) {
         case AST_SUB:    res = cgsub(ch_regs[0], ch_regs[1], state); break;
         case AST_MUL:    res = cgmul(ch_regs[0], ch_regs[1], state); break;
         case AST_DIV:    res = cgdiv(ch_regs[0], ch_regs[1], state); break;
-        case AST_INTLIT: res = cgload(ast->i, state); break;
-        default: break;
+        case AST_INT_LIT:res = cgload(ast->i, state); break;
+        default:
+            fprintf(stderr, "Error: unrecognised token '%s'\n", asttypetostr(ast->type));
+            exit(0);
+            break;
     }
 
     if (ast->children_n > 0) {

@@ -10,6 +10,7 @@ enum ASTType {
     AST_INT_LIT,
     AST_STR_LIT,
     AST_IDENT,
+    AST_LVIDENT,
     AST_ADD,
     AST_SUB,
     AST_MUL,
@@ -54,7 +55,18 @@ enum ASTType {
     AST_PROG,
 };
 
+enum VarType {
+    VAR_KINT,
+    VAR_KCHAR,
+    VAR_KSTRUCT,
+    VAR_KVOID,
+    VAR_KENUM,
+    VAR_KLONG,
+    VAR_KSHORT,
+};
+
 typedef enum ASTType ASTType;
+typedef enum VarType VarType;
 typedef struct Symbol Symbol;
 typedef struct SymTable SymTable;
 
@@ -67,6 +79,7 @@ struct AST {
 
 struct Symbol {
     char *s;
+    VarType ty;
     size_t ident;
 };
 

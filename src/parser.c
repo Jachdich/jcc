@@ -33,6 +33,21 @@ ASTType lextoast(LexTokenType ty) {
     }
 }
 
+VarType asttovar(ASTType ty) {
+    switch (ty) {
+        case AST_KINT: return VAR_KINT;
+        case AST_KCHAR: return VAR_KCHAR;
+        case AST_KSTRUCT: return VAR_KSTRUCT;
+        case AST_KVOID: return VAR_KVOID;
+        case AST_KENUM: return VAR_KENUM;
+        case AST_KLONG: return VAR_KLONG;
+        case AST_KSHORT: return VAR_KSHORT;
+        default:
+            printf("what the fuck, wrong type '%s' passed to asttovar\n", asttypetostr(ty));
+            exit(0);
+    }
+}
+
 void sym_init(SymTable *t, SymTable *outer) {
     t->pos = 0;
     t->capacity = 64;
@@ -40,13 +55,14 @@ void sym_init(SymTable *t, SymTable *outer) {
     t->symbols = malloc(sizeof(Symbol) * 64);
 }
 
-size_t sym_new(SymTable *t, char *name) {
+size_t sym_new(SymTable *t, char *name, VarType type) {
     if (t->pos >= t->capacity) {
         t->symbols = realloc(t->symbols, sizeof(Symbol) * (t->capacity *= 2));
     }
     Symbol s;
     s.s = name;
     s.ident = t->pos;
+    s.ty = type;
     t->symbols[t->pos++] = s;
     return s.ident;
 }
@@ -107,31 +123,26 @@ AST *vardecl(LexTokenStream *s, SymTable *scope) {
     case TOK_KSHORT:
         LexToken *t = lex_consume(s);
         if (t->type == TOK_IDENT) {
-            size_t ident = sym_new(scope, t->str);
-            AST *child1 = ast_construct(NULL, 0, lextoast(type), 0);
-            AST *child2 = ast_construct(NULL, 0, AST_IDENT, ident);
+            size_t ident = sym_new(scope, t->str, asttovar(lextoast(type)));
+            AST *child1 = ast_construct(NULL, 0, AST_LVIDENT, ident);
             LexToken *t2 = lex_consume(s);
             if (t2->type != TOK_ASSIGN) {
                 if (t2->type == TOK_SEMICOLON) {
-                    AST **children = malloc(sizeof(AST*) * 2);
-                    children[0] = child1;
-                    children[1] = child2;
-                    AST *out = ast_construct(children, 2, AST_DECL, 0);
-                    return out;
+                    return NULL;
                 } else {
                     fprintf(stderr, "Error: expected assignment operator or semicolon, got %s\n", toktostr(t->type));
                     exit(0);
                 }
             }
-            AST *child3 = expr(s, scope);
+            AST *child2 = expr(s, scope);
 
-            AST **children = malloc(sizeof(AST*) * 3);
+            AST **children = malloc(sizeof(AST*) * 2);
             children[0] = child1;
             children[1] = child2;
-            children[2] = child3;
-            AST *out = ast_construct(children, 3, AST_DECL_VAL, 0);
-            if (lex_consume(s)->type != TOK_SEMICOLON) {
-                printf("what\n");
+            AST *out = ast_construct(children, 2, AST_ASSIGN, 0);
+            LexToken *tok = lex_consume(s);
+            if (tok->type != TOK_SEMICOLON) {
+                printf("what, expected a fucking semicolon you moron, got whatever the fuck '%s' is instead\n", toktostr(tok->type));
                 exit(0);
             }
             return out;
@@ -164,7 +175,7 @@ AST *varassign(LexTokenStream *s, SymTable *scope) {
         fprintf(stderr, "Error: variable '%s' not defined", t->str);
         exit(0);
     }
-    children[0] = ast_construct(NULL, 0, AST_IDENT, ident);
+    children[0] = ast_construct(NULL, 0, AST_LVIDENT, ident);
     children[1] = expr(s, scope);
     if (lex_consume(s)->type != TOK_SEMICOLON) {
         printf("what\n");
@@ -259,7 +270,10 @@ ASTList ASTstatements(LexTokenStream *s, SymTable *scope) {
             case TOK_KENUM:
             case TOK_KLONG:
             case TOK_KSHORT:
-                ast_list_append(&smts, vardecl(s, scope));
+                AST *a = vardecl(s, scope);
+                if (a != NULL) {
+                    ast_list_append(&smts, a);
+                }
                 break;
             case TOK_IDENT:
                 ast_list_append(&smts, varassign(s, scope));
@@ -296,6 +310,7 @@ const char *asttypetostr(ASTType ty) {
         case AST_INT_LIT:    return "AST_INT_LIT   ";
         case AST_STR_LIT:    return "AST_STR_LIT   ";
         case AST_IDENT:      return "AST_IDENT     ";
+        case AST_LVIDENT:    return "AST_LVIDENT   ";
         case AST_ADD:        return "AST_ADD       ";
         case AST_SUB:        return "AST_SUB       ";
         case AST_MUL:        return "AST_MUL       ";

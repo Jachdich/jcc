@@ -10,10 +10,10 @@ struct Reg {
 };
 
 enum {
-    FLAG_SIGN,
-    FLAG_NZERO,
-    FLAG_NSIGN,
+    FLAG_CARRY,
     FLAG_ZERO,
+    FLAG_NCARRY,
+    FLAG_NZERO,
 };
 
 struct Machine {
@@ -36,47 +36,30 @@ struct Instruction {
 /*
 
 0 mov r{arg1} -> r{arg2}
-1 mov {arg2 | arg3 << 8} -> r{arg1}
+1 movi {arg2 | arg3 << 8} -> r{arg1}
 2 jcr cond{arg1}, {arg2 | arg3 << 8}
 3 jr {arg2 | arg3 << 8}
 4 out r{arg1}
 
 5 add r{arg1}, r{arg2} -> r{arg3}
-6 add r{arg1}, {arg2 | arg3 << 8} -> r{arg1}
+6 addi r{arg1}, {arg2 | arg3 << 8} -> r{arg1}
 
 7 sub r{arg1}, r{arg2} -> r{arg3}
-8 sub r{arg1}, {arg2 | arg3 << 8} -> r{arg1}
+8 subi r{arg1}, {arg2 | arg3 << 8} -> r{arg1}
 
 9 mul r{arg1}, r{arg2} -> r{arg3}
-a mul r{arg1}, {arg2 | arg3 << 8} -> r{arg1}
+a muli r{arg1}, {arg2 | arg3 << 8} -> r{arg1}
 
 b div r{arg1}, r{arg2} -> r{arg3}
-c div r{arg1}, {arg2 | arg3 << 8} -> r{arg1}
+c divi r{arg1}, {arg2 | arg3 << 8} -> r{arg1}
 
 d mod r{arg1}, r{arg2} -> r{arg3}
-e mod r{arg1}, {arg2 | arg3 << 8} -> r{arg1}
+e modi r{arg1}, {arg2 | arg3 << 8} -> r{arg1}
 
 f movl {next qword} -> r{arg1}
 
 10 halt
 
-        movl 2147483647 -> r0
-        mov r0 -> r1
-        mov 2 -> r2
-        div r0, 2 -> r0
-        add r0, 1 -> r0
-pos:
-        mod r1, r2 -> r3
-        jcr zero pos
-        
-        sub r2, r1 -> r3
-        jcr zero false
-        mov 1 -> r0
-        out r0
-        jr end
-false:  mov 0 -> r0
-        out r0
-end:    halt
 
 0f 00 00 00
 7f ff ff ff
@@ -131,7 +114,7 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
             case 0x0e: m->regs[instr.arg1].i = m->regs[instr.arg1].i % instr.arg23;           if (m->regs[instr.arg1].i == 0) { m->flags[FLAG_ZERO] = 1; } else { m->flags[FLAG_ZERO] = 0; } m->flags[FLAG_NZERO] = !m->flags[FLAG_ZERO]; break;
 
             case 0x0f:
-                m->regs[instr.arg1].i = ((uint32_t*)stream)[++m->pc];
+                m->regs[instr.arg1].i = *((uint32_t*)(stream + ++m->pc));
                 break;
             case 0x10:
                 return;

@@ -116,7 +116,7 @@ int gen_ast(AST *ast, CGState *state) {
     int res;
 
     switch (ast->type) {
-        case AST_PROG:   break;
+        case AST_PROG:   break; //already calculated all the children so leave
         case AST_ADD:    res = cgadd(ch_regs[0], ch_regs[1], state); break;
         case AST_SUB:    res = cgsub(ch_regs[0], ch_regs[1], state); break;
         case AST_MUL:    res = cgmul(ch_regs[0], ch_regs[1], state); break;

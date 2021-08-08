@@ -28,6 +28,10 @@ int is_reg(char *str) {
     return is_intlit(str);
 }
 
+int is_twobyte(uint8_t opcode) {
+    return opcode == 0x0f || opcode == 0x11;
+}
+
 uint8_t get_opcode(char **str) {
     char *init = *str;
     while (**str != ' ' && **str != '\t' && **str != 0) {
@@ -53,6 +57,8 @@ uint8_t get_opcode(char **str) {
     if (strcmp(init, "modi") == 0) return 14;
     if (strcmp(init, "movl") == 0) return 15;
     if (strcmp(init, "halt") == 0) return 16;
+    if (strcmp(init, "call") == 0) return 17;
+    if (strcmp(init, "ret")  == 0) return 18;
     printf("Unknown opcode %s\n", init);
     return -1;
 }
@@ -186,61 +192,74 @@ size_t gen_instrs(Reader *r, Instr **instrs_ptr) {
     return len;
 }
 
-size_t resolve_symbols(Instr *instrs, size_t num_instrs) {
-    char **syms = malloc(sizeof(char*) * 64);
-    int *locs = malloc(sizeof(int) * 64);
+size_t resolve_symbols(Instr *instrs, size_t num_instrs, SymTable *table) {
+    table->res_syms = malloc(sizeof(char*) * 64);
+    table->unres_syms = malloc(sizeof(char*) * 64);
+    table->locs = malloc(sizeof(size_t) * 64);
+    table->ids = malloc(sizeof(size_t) * 64);
+    table->res_pos = 0;
+    table->unres_pos = 0;
+    table->res_cap = 64;
+    table->unres_cap = 64;
+    table->curr_id = 1;
     
-    size_t spos = 0;
-    size_t scap = 64;
     int curr_pos = 0;
     for (size_t i = 0; i < num_instrs; i++) {
         Instr in = instrs[i];
         if (in.label_at != NULL) {
-            syms[spos] = in.label_at;
-            locs[spos] = curr_pos;
-            spos += 1;
-            if (spos >= scap) {
-                syms = realloc(syms, sizeof(char*) * scap * 2);
-                locs = realloc(locs, sizeof(int) * scap * 2);
-                scap *= 2;
+            table->res_syms[table->res_pos] = in.label_at;
+            in.label_at = NULL;
+            table->locs[table->res_pos] = curr_pos;
+            table->res_pos += 1;
+            if (table->res_pos >= table->res_cap) {
+                table->res_syms = realloc(table->res_syms, sizeof(char*) * table->res_cap * 2);
+                table->locs = realloc(table->locs, sizeof(size_t) * table->res_cap * 2);
+                table->res_cap *= 2;
             }
         }
         
         curr_pos += 1;
-        if (in.opcode == 0x0f) {
+        if (is_twobyte(in.opcode)) {
             curr_pos += 1;
         }
     }
-
+    
     curr_pos = 0;
     for (size_t i = 0; i < num_instrs; i++) {
         Instr *in = instrs + i;
+        
         for (size_t ap = 0; ap <3; ap++) {
             if (in->args[ap].s != NULL) {
-                for (size_t sp = 0; sp < spos; sp++) {
-                    if (strcmp(in->args[ap].s, syms[sp]) == 0) {
+                for (size_t sp = 0; sp < table->unres_pos; sp++) {
+                    if (strcmp(in->args[ap].s, table->unres_syms[sp]) == 0) {
                         free(in->args[ap].s);
                         in->args[ap].s = NULL;
-                        in->args[ap].i = locs[sp] - curr_pos;
+                        in->args[ap].i = table->ids[sp];
                         break;
                     }
                 }
                 if (in->args[ap].s != NULL) {
-                    printf("Error: unknown label '%s'\n", in->args[ap].s);
-                    exit(0);
+                    table->unres_syms[table->unres_pos] = in->args[ap].s;
+                    table->ids[table->unres_pos] = table->curr_id++;
+                    table->unres_pos++;
+                    if (table->unres_pos >= table->unres_cap) {
+                        table->unres_syms = realloc(table->unres_syms, sizeof(char*) * table->unres_cap * 2);
+                        table->ids = realloc(table->ids, sizeof(size_t) * table->unres_cap * 2);
+                        table->unres_cap *= 2;
+                    }
                 }
             }
         }
         curr_pos += 1;
-        if (in->opcode == 0x0f) {
+        if (is_twobyte(in->opcode)) {
             curr_pos += 1;
         }
     }
-
+    /*
     for (size_t i = 0; i < spos; i++) {
         free(syms[spos]);
     }
-    free(syms);
+    free(syms);*/
     return curr_pos;
 }
 
@@ -273,6 +292,8 @@ size_t reorder_args(uint8_t **code_ptr, Instr *instrs, size_t num_instrs, size_t
 
             case 0x0f: code[pos++] = a[1].i; code[pos++] = 0; code[pos++] = 0; writeqword(code, &pos, a[0].i); break;
             case 0x10: code[pos++] = 0; code[pos++] = 0; code[pos++] = 0; break;
+            case 0x11: code[pos++] = 0; code[pos++] = 0; code[pos++] = 0; writeqword(code, &pos, a[0].i); break;
+            case 0x12: code[pos++] = 0; code[pos++] = 0; code[pos++] = 0; break;
             default: break;
         }
         free(in.args);
@@ -280,11 +301,66 @@ size_t reorder_args(uint8_t **code_ptr, Instr *instrs, size_t num_instrs, size_t
     return codesize;
 }
 
+/*
+
+object file
+
+
+
+
+
+*/
+
+struct ObjHeader {
+    char magic[4];
+    uint32_t unres_sym_len;
+    uint32_t res_sym_len;
+};
+
+uint8_t *write_table(uint8_t *data, char **syms, uint32_t *ids, uint32_t num) {
+    for (size_t i = 0; i < num; i++) {
+        uint32_t symlen = strlen(syms[i]);
+        char *sym = syms[i];
+        uint32_t id = ids[i];
+        memcpy(data, &symlen, 4);
+        data += 4;
+        memcpy(data, sym, symlen);
+        data += symlen;
+        memcpy(data, &id, 4);
+        data += 4;
+    }
+    return data;
+}
+
 size_t assemble(Reader *src, uint8_t **out) {
     Instr *instrs;
     size_t num_instrs = gen_instrs(src, &instrs);
-    size_t num_words = resolve_symbols(instrs, num_instrs);
-    size_t codesize = reorder_args(out, instrs, num_instrs, num_words);
+    SymTable table;
+    size_t num_words = resolve_symbols(instrs, num_instrs, &table);
+    uint8_t *assembled_instructions;
+    size_t codesize = reorder_args(&assembled_instructions, instrs, num_instrs, num_words);
+
+    struct ObjHeader header = {{'L', 'm', 'a', 'o'}, table.unres_pos, table.res_pos};
+
+    size_t unres_size = sizeof(size_t) * 2 * table.unres_pos;
+    for (size_t i = 0; i < table.unres_pos; i++) {
+        unres_size += strlen(table.unres_syms[i]);
+    }
+
+    size_t res_size = sizeof(size_t) * 2 * table.res_pos;
+    for (size_t i = 0; i < table.res_pos; i++) {
+        res_size += strlen(table.res_syms[i]);
+    }
+    
+    uint8_t *data = malloc(sizeof(header) + codesize + unres_size + res_size);
+    *out = data;
+    memcpy(data, &header, sizeof(header));
+    data += sizeof(header);
+    
+    data = write_table(data, table.unres_syms, table.ids, table.unres_pos);
+    data = write_table(data, table.res_syms, table.locs, table.res_pos);
+    memcpy(data, assembled_instructions, codesize);
+    
     free(instrs);
-    return codesize;
+    return sizeof(header) + codesize + unres_size + res_size;
 }

@@ -277,6 +277,8 @@ ASTList ASTstatements(LexTokenStream *s, SymTable *scope) {
                 break;
             case TOK_IDENT:
                 ast_list_append(&smts, varassign(s, scope));
+            case TOK_INT:
+                ast_list_append(&smts, expr(s, scope));
             case TOK_EOF:
                 return smts;
             default:

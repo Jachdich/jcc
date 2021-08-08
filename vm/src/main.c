@@ -20,6 +20,8 @@ struct Machine {
     struct Reg regs[16];
     int flags[4];
     int pc;
+    int sp;
+    int bp;
 };
 
 struct Instruction {
@@ -30,7 +32,7 @@ struct Instruction {
             uint8_t arg2;
             uint8_t arg3;
         };
-        uint16_t arg23;
+        int16_t arg23;
     };
 };
 /*
@@ -79,11 +81,36 @@ f movl {next qword} -> r{arg1}
 10 00 00 00
 */
 
+const char *op_name(uint8_t op) {
+    switch (op) {
+        case 0x00: return "mov";
+        case 0x01: return "movi";
+        case 0x02: return "jcr";
+        case 0x03: return "jr";
+        case 0x04: return "out";
+        case 0x05: return "add";
+        case 0x06: return "addi";
+        case 0x07: return "sub";
+        case 0x08: return "subi";
+        case 0x09: return "mul";
+        case 0x0a: return "muli";
+        case 0x0b: return "div";
+        case 0x0c: return "divi";
+        case 0x0d: return "mod";
+        case 0x0e: return "modi";
+        case 0x0f: return "movl";
+        case 0x10: return "halt";
+        return "Invalid opcode";
+    }
+}
+
 void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
     m->pc = 0;
     while ((unsigned)m->pc < ninstr) {
         struct Instruction instr = stream[m->pc];
-        printf("%d\n", instr.opcode);
+        //printf("Regs: %d %d %d %d, opcode: %s %d, %d, %d (%d)\n", m->regs[0].i, m->regs[1].i, m->regs[2].i, m->regs[3].i, op_name(instr.opcode), instr.arg1, instr.arg2, instr.arg3, (signed)instr.arg23);
+        int flg = 0;
+        int reg = 0;
         switch (instr.opcode) {
             case 0x00:
                 m->regs[instr.arg2] = m->regs[instr.arg1];
@@ -93,7 +120,7 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
                 break;
             case 0x02:
                 if (m->flags[instr.arg1]) {
-                    m->pc += (signed)instr.arg23 - 1;
+                    m->pc += ((signed)instr.arg23) - 1;
                 }
                 break;
             case 0x03:
@@ -102,22 +129,30 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
             case 0x04:
                 printf("%d\n", m->regs[instr.arg1].i);
                 break;
-            case 0x05: m->regs[instr.arg3].i = m->regs[instr.arg1].i + m->regs[instr.arg2].i; if (m->regs[instr.arg3].i == 0) { m->flags[FLAG_ZERO] = 1; } else { m->flags[FLAG_ZERO] = 0; } m->flags[FLAG_NZERO] = !m->flags[FLAG_ZERO]; break;
-            case 0x06: m->regs[instr.arg1].i = m->regs[instr.arg1].i + instr.arg23;           if (m->regs[instr.arg1].i == 0) { m->flags[FLAG_ZERO] = 1; } else { m->flags[FLAG_ZERO] = 0; } m->flags[FLAG_NZERO] = !m->flags[FLAG_ZERO]; break;
-            case 0x07: m->regs[instr.arg3].i = m->regs[instr.arg1].i - m->regs[instr.arg2].i; if (m->regs[instr.arg3].i == 0) { m->flags[FLAG_ZERO] = 1; } else { m->flags[FLAG_ZERO] = 0; } m->flags[FLAG_NZERO] = !m->flags[FLAG_ZERO]; break;
-            case 0x08: m->regs[instr.arg1].i = m->regs[instr.arg1].i - instr.arg23;           if (m->regs[instr.arg1].i == 0) { m->flags[FLAG_ZERO] = 1; } else { m->flags[FLAG_ZERO] = 0; } m->flags[FLAG_NZERO] = !m->flags[FLAG_ZERO]; break;
-            case 0x09: m->regs[instr.arg3].i = m->regs[instr.arg1].i * m->regs[instr.arg2].i; if (m->regs[instr.arg3].i == 0) { m->flags[FLAG_ZERO] = 1; } else { m->flags[FLAG_ZERO] = 0; } m->flags[FLAG_NZERO] = !m->flags[FLAG_ZERO]; break;
-            case 0x0a: m->regs[instr.arg1].i = m->regs[instr.arg1].i * instr.arg23;           if (m->regs[instr.arg1].i == 0) { m->flags[FLAG_ZERO] = 1; } else { m->flags[FLAG_ZERO] = 0; } m->flags[FLAG_NZERO] = !m->flags[FLAG_ZERO]; break;
-            case 0x0b: m->regs[instr.arg3].i = m->regs[instr.arg1].i / m->regs[instr.arg2].i; if (m->regs[instr.arg3].i == 0) { m->flags[FLAG_ZERO] = 1; } else { m->flags[FLAG_ZERO] = 0; } m->flags[FLAG_NZERO] = !m->flags[FLAG_ZERO]; break;
-            case 0x0c: m->regs[instr.arg1].i = m->regs[instr.arg1].i / instr.arg23;           if (m->regs[instr.arg1].i == 0) { m->flags[FLAG_ZERO] = 1; } else { m->flags[FLAG_ZERO] = 0; } m->flags[FLAG_NZERO] = !m->flags[FLAG_ZERO]; break;
-            case 0x0d: m->regs[instr.arg3].i = m->regs[instr.arg1].i % m->regs[instr.arg2].i; if (m->regs[instr.arg3].i == 0) { m->flags[FLAG_ZERO] = 1; } else { m->flags[FLAG_ZERO] = 0; } m->flags[FLAG_NZERO] = !m->flags[FLAG_ZERO]; break;
-            case 0x0e: m->regs[instr.arg1].i = m->regs[instr.arg1].i % instr.arg23;           if (m->regs[instr.arg1].i == 0) { m->flags[FLAG_ZERO] = 1; } else { m->flags[FLAG_ZERO] = 0; } m->flags[FLAG_NZERO] = !m->flags[FLAG_ZERO]; break;
+            case 0x05: m->regs[instr.arg3].i = m->regs[instr.arg1].i + m->regs[instr.arg2].i; flg = 1; reg = m->regs[instr.arg3].i; break;
+            case 0x06: m->regs[instr.arg1].i = m->regs[instr.arg1].i + instr.arg23;           flg = 1; reg = m->regs[instr.arg1].i; break;
+            case 0x07: m->regs[instr.arg3].i = m->regs[instr.arg1].i - m->regs[instr.arg2].i; flg = 1; reg = m->regs[instr.arg3].i; break;
+            case 0x08: m->regs[instr.arg1].i = m->regs[instr.arg1].i - instr.arg23;           flg = 1; reg = m->regs[instr.arg1].i; break;
+            case 0x09: m->regs[instr.arg3].i = m->regs[instr.arg1].i * m->regs[instr.arg2].i; flg = 1; reg = m->regs[instr.arg3].i; break;
+            case 0x0a: m->regs[instr.arg1].i = m->regs[instr.arg1].i * instr.arg23;           flg = 1; reg = m->regs[instr.arg1].i; break;
+            case 0x0b: m->regs[instr.arg3].i = m->regs[instr.arg1].i / m->regs[instr.arg2].i; flg = 1; reg = m->regs[instr.arg3].i; break;
+            case 0x0c: m->regs[instr.arg1].i = m->regs[instr.arg1].i / instr.arg23;           flg = 1; reg = m->regs[instr.arg1].i; break;
+            case 0x0d: m->regs[instr.arg3].i = m->regs[instr.arg1].i % m->regs[instr.arg2].i; flg = 1; reg = m->regs[instr.arg3].i; break;
+            case 0x0e: m->regs[instr.arg1].i = m->regs[instr.arg1].i % instr.arg23;           flg = 1; reg = m->regs[instr.arg1].i; break;
 
             case 0x0f:
                 m->regs[instr.arg1].i = *((uint32_t*)(stream + ++m->pc));
                 break;
             case 0x10:
                 return;
+        }
+        if (flg) {
+            if (reg == 0) {
+                m->flags[FLAG_ZERO] = 1;
+            } else {
+                m->flags[FLAG_ZERO] = 0;
+            }
+            m->flags[FLAG_NZERO] = !m->flags[FLAG_ZERO];
         }
         m->pc++;
     }

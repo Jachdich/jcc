@@ -4,7 +4,7 @@
 #include <string.h>
 
 //max length of a register's string representation
-#define REGSTRLEN 8
+#define REGSTRLEN 3
 
 //maximum length a 64 bit int can be when converted to str
 #define MAXINTSTRLEN 20
@@ -65,47 +65,43 @@ void reg_free(CGState *state, int reg) {
 }
 
 int cgadd(int rega, int regb, CGState *state) {
-    state_alloc_atleast(state, 8 + REGSTRLEN * 2);
-    state->code_len += sprintf(state->code + state->code_len, "\tadd\t%s, %s\n", state->reg_names[regb], state->reg_names[rega]);
+    state_alloc_atleast(state, 12 + REGSTRLEN * 3);
+    state->code_len += sprintf(state->code + state->code_len, "\tadd\t%s, %s -> %s\n", state->reg_names[regb], state->reg_names[rega], state->reg_names[regb]);
     reg_free(state, rega);
     return regb;
 }
 
 int cgsub(int rega, int regb, CGState *state) {
-    state_alloc_atleast(state, 8 + REGSTRLEN * 2);
-    state->code_len += sprintf(state->code + state->code_len, "\tsub\t%s, %s\n", state->reg_names[rega], state->reg_names[regb]);
+    state_alloc_atleast(state, 12 + REGSTRLEN * 3);
+    state->code_len += sprintf(state->code + state->code_len, "\tsub\t%s, %s -> %s\n", state->reg_names[rega], state->reg_names[regb], state->reg_names[rega]);
     reg_free(state, regb);
     return rega;
 }
 
 int cgmul(int rega, int regb, CGState *state) {
-    state_alloc_atleast(state, 9 + REGSTRLEN * 2);
-    state->code_len += sprintf(state->code + state->code_len, "\timul\t%s, %s\n", state->reg_names[regb], state->reg_names[rega]);
+    state_alloc_atleast(state, 12 + REGSTRLEN * 3);
+    state->code_len += sprintf(state->code + state->code_len, "\tmul\t%s, %s -> %s\n", state->reg_names[regb], state->reg_names[rega], state->reg_names[regb]);
     reg_free(state, rega);
     return regb;
 }
 
 int cgdiv(int rega, int regb, CGState *state) {
-    state_alloc_atleast(state, 35 + REGSTRLEN * 3);
-    state->code_len += sprintf(state->code + state->code_len, "\tmov rax, %s\n", state->reg_names[rega]);
-    state->code_len += sprintf(state->code + state->code_len, "\tcqo\n");
-    state->code_len += sprintf(state->code + state->code_len, "\tidiv\t%s\n", state->reg_names[regb]);
-    state->code_len += sprintf(state->code + state->code_len, "\tmov %s, rax\n", state->reg_names[rega]);
+    state_alloc_atleast(state, 12 + REGSTRLEN * 3);
+    state->code_len += sprintf(state->code + state->code_len, "\tdiv\t%s, %s -> %s\n", state->reg_names[rega], state->reg_names[regb], state->reg_names[rega]);
     reg_free(state, regb);
     return rega;
 }
 
 int cgload(int val, CGState *state) {
     int reg = reg_alloc(state);
-    state_alloc_atleast(state, 8 + REGSTRLEN + MAXINTSTRLEN);
-    state->code_len += sprintf(state->code + state->code_len, "\tmov\t%s, %d\n", state->reg_names[reg], val);
+    state_alloc_atleast(state, 11 + REGSTRLEN + MAXINTSTRLEN);
+    state->code_len += sprintf(state->code + state->code_len, "\tmovl\t%d -> %s\n", val, state->reg_names[reg]);
     return reg;
 }
 
 void cgprintint(CGState *state, int reg) {
-    state_alloc_atleast(state, 26 + REGSTRLEN);
-    state->code_len += sprintf(state->code + state->code_len, "\tmov\trdi, %s\n", state->reg_names[reg]);
-    state->code_len += sprintf(state->code + state->code_len, "\tcall\tprintint\n");
+    state_alloc_atleast(state, 6 + REGSTRLEN);
+    state->code_len += sprintf(state->code + state->code_len, "\tout\t%s\n", state->reg_names[reg]);
 }
 
 int gen_ast(AST *ast, CGState *state) {
@@ -120,6 +116,7 @@ int gen_ast(AST *ast, CGState *state) {
     int res;
 
     switch (ast->type) {
+        case AST_PROG:   break;
         case AST_ADD:    res = cgadd(ch_regs[0], ch_regs[1], state); break;
         case AST_SUB:    res = cgsub(ch_regs[0], ch_regs[1], state); break;
         case AST_MUL:    res = cgmul(ch_regs[0], ch_regs[1], state); break;
@@ -138,45 +135,21 @@ int gen_ast(AST *ast, CGState *state) {
 }
 
 Error cg_gen(AST *ast, char **code) {
-    char *reg_names[] = {"r8", "r9", "r10", "r11"};
-    const char *preamble = "default rel\n"
-        "extern printf\n"
-        "section .rodata\n"
-        "\tformat db \"%d\", 10, 0\n"
-        "section .text\n"
-        "global main\n"
-        "printint:\n"
-        "\tpush rbp\n"
-        "\tmov rbp, rsp\n"
-        "\tsub rsp, 16\n"
-        "\tmov [rbp - 4], edi\n"
-        "\tmov eax, [rbp - 4]\n"
-        "\tmov esi, eax\n"
-        "\tlea rdi, [rel format]\n"
-        "\txor eax, eax\n"
-        "\tcall printf\n"
-        "\tnop\n"
-        "\tleave\n"
-        "\tret\n"
-        "main:\n"
-        "\tpush rbp\n"
-        "\tmov rbp, rsp\n";
-    const char *postamble = "\txor eax, eax\n"
-        "\tpop rbp\n"
-        "\tret\n";
+    char *reg_names[] = {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"};
+    const char *preamble = "";
+    const char *postamble = "\thalt\n";
 
     size_t pre_len  = strlen(preamble);
     size_t post_len = strlen(postamble);
     
     CGState state;
-    state_init(&state, 4, reg_names);
+    state_init(&state, 16, reg_names);
     state_alloc_atleast(&state, pre_len);
     strcpy(state.code + state.code_len, preamble);
     state.code_len += pre_len;
     
-    int reg = gen_ast(ast, &state);
-    cgprintint(&state, reg);
-
+    gen_ast(ast, &state);
+    
     state_alloc_atleast(&state, post_len);
     strcpy(state.code + state.code_len, postamble);
     state.code_len += post_len;

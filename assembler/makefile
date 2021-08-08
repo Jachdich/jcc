@@ -6,6 +6,10 @@ EXENAME := jas
 $(EXENAME): $(OBJECTS)
 	gcc $(OBJECTS) -o $@
 
+libjas.a: $(OBJECTS)
+	ar -rc $@ $(filter-out obj/main.o,$(OBJECTS))
+	ranlib $@
+
 obj/%.o: src/%.c $(HEADERS)
 	@mkdir -p obj
 	gcc -c -o $@ $< -Wall -g -Iinclude

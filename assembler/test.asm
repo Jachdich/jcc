@@ -1,3 +1,4 @@
-        mov 69 -> r0
-        call print
-        halt
+_start:
+    mov 69 -> r0
+    call print
+    halt

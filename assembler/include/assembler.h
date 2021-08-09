@@ -21,8 +21,14 @@ struct SymTable {
     char **unres_syms;
     uint32_t *locs;
     uint32_t *ids;
+
+    uint32_t *placeholder_offsets;
+    uint32_t phoff_pos;
+    uint32_t phoff_cap;
+    
     size_t res_pos;
     size_t res_cap;
+    
     size_t unres_pos;
     size_t unres_cap;
     size_t curr_id;

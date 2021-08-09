@@ -202,6 +202,10 @@ size_t resolve_symbols(Instr *instrs, size_t num_instrs, SymTable *table) {
     table->res_cap = 64;
     table->unres_cap = 64;
     table->curr_id = 1;
+
+    table->placeholder_offsets = malloc(sizeof(uint32_t) * 64);
+    table->phoff_pos = 0;
+    table->phoff_cap = 64;
     
     int curr_pos = 0;
     for (size_t i = 0; i < num_instrs; i++) {
@@ -235,6 +239,7 @@ size_t resolve_symbols(Instr *instrs, size_t num_instrs, SymTable *table) {
                         free(in->args[ap].s);
                         in->args[ap].s = NULL;
                         in->args[ap].i = table->ids[sp];
+                        
                         break;
                     }
                 }
@@ -247,6 +252,12 @@ size_t resolve_symbols(Instr *instrs, size_t num_instrs, SymTable *table) {
                         table->ids = realloc(table->ids, sizeof(size_t) * table->unres_cap * 2);
                         table->unres_cap *= 2;
                     }
+                }
+
+                table->placeholder_offsets[table->phoff_pos++] = (curr_pos + 1) * 4;
+
+                if (table->phoff_pos >= table->phoff_cap) {
+                    table->placeholder_offsets = realloc(table->placeholder_offsets, sizeof(uint32_t) * (table->phoff_cap *= 2));
                 }
             }
         }
@@ -305,10 +316,24 @@ size_t reorder_args(uint8_t **code_ptr, Instr *instrs, size_t num_instrs, size_t
 
 object file
 
+Header:
+    4: magic 'Lmao'
+    4: len(unres_sym)
+    4: len(res_sym)
 
+n * unres_table:
+    4: strlen(sym)
+    len: sym
+    4: id
 
+n * res_table:
+    4: strlen(sym)
+    len: sym
+    4: offset 
 
-
+to_replace:
+    4: num
+    num * 4: offsets
 */
 
 struct ObjHeader {
@@ -332,6 +357,14 @@ uint8_t *write_table(uint8_t *data, char **syms, uint32_t *ids, uint32_t num) {
     return data;
 }
 
+void table_free(SymTable *table) {
+    free(table->res_syms);
+    free(table->unres_syms);
+    free(table->locs);
+    free(table->ids);
+    free(table->placeholder_offsets);
+}
+
 size_t assemble(Reader *src, uint8_t **out) {
     Instr *instrs;
     size_t num_instrs = gen_instrs(src, &instrs);
@@ -352,14 +385,20 @@ size_t assemble(Reader *src, uint8_t **out) {
         res_size += strlen(table.res_syms[i]);
     }
     
-    uint8_t *data = malloc(sizeof(header) + codesize + unres_size + res_size);
+    uint8_t *data = malloc(sizeof(header) + codesize + unres_size + res_size + table.phoff_pos * sizeof(uint32_t) + sizeof(uint32_t));
     *out = data;
     memcpy(data, &header, sizeof(header));
     data += sizeof(header);
     
     data = write_table(data, table.unres_syms, table.ids, table.unres_pos);
     data = write_table(data, table.res_syms, table.locs, table.res_pos);
+    memcpy(data, &table.phoff_pos, sizeof(uint32_t));
+    data += sizeof(uint32_t);
+    memcpy(data, table.placeholder_offsets, table.phoff_pos * sizeof(uint32_t));
+    data += table.phoff_pos * sizeof(uint32_t);
     memcpy(data, assembled_instructions, codesize);
+
+    table_free(&table);
     
     free(instrs);
     return sizeof(header) + codesize + unres_size + res_size;

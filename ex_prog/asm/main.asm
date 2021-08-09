@@ -5,3 +5,4 @@ _start:
 	movl	3 -> r1
 	add	r1, r0 -> r1
 	out r1
+    halt

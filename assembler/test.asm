@@ -1,4 +1,4 @@
 _start:
-    mov 69 -> r0
+    movi 69 -> r0
     call print
     halt

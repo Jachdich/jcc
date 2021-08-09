@@ -222,9 +222,9 @@ size_t resolve_symbols(Instr *instrs, size_t num_instrs, SymTable *table) {
             }
         }
         
-        curr_pos += 1;
+        curr_pos += 4;
         if (is_twobyte(in.opcode)) {
-            curr_pos += 1;
+            curr_pos += 4;
         }
     }
     
@@ -245,8 +245,11 @@ size_t resolve_symbols(Instr *instrs, size_t num_instrs, SymTable *table) {
                 }
                 if (in->args[ap].s != NULL) {
                     table->unres_syms[table->unres_pos] = in->args[ap].s;
-                    table->ids[table->unres_pos] = table->curr_id++;
+                    table->ids[table->unres_pos] = table->curr_id;
+                    in->args[ap].i = table->curr_id;
+                    in->args[ap].s = NULL;
                     table->unres_pos++;
+                    table->curr_id++;
                     if (table->unres_pos >= table->unres_cap) {
                         table->unres_syms = realloc(table->unres_syms, sizeof(char*) * table->unres_cap * 2);
                         table->ids = realloc(table->ids, sizeof(size_t) * table->unres_cap * 2);
@@ -254,16 +257,16 @@ size_t resolve_symbols(Instr *instrs, size_t num_instrs, SymTable *table) {
                     }
                 }
 
-                table->phoff[table->phoff_pos++] = (curr_pos + 1) * 4;
+                table->phoff[table->phoff_pos++] = curr_pos + 4;
 
                 if (table->phoff_pos >= table->phoff_cap) {
                     table->phoff = realloc(table->phoff, sizeof(uint32_t) * (table->phoff_cap *= 2));
                 }
             }
         }
-        curr_pos += 1;
+        curr_pos += 4;
         if (is_twobyte(in->opcode)) {
-            curr_pos += 1;
+            curr_pos += 4;
         }
     }
     /*
@@ -369,7 +372,7 @@ size_t assemble(Reader *src, uint8_t **out) {
     Instr *instrs;
     size_t num_instrs = gen_instrs(src, &instrs);
     SymTable table;
-    size_t num_words = resolve_symbols(instrs, num_instrs, &table);
+    size_t num_words = resolve_symbols(instrs, num_instrs, &table) / 4;
     uint8_t *assembled_instructions;
     size_t codesize = reorder_args(&assembled_instructions, instrs, num_instrs, num_words);
 

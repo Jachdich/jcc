@@ -19,6 +19,8 @@ enum {
 struct Machine {
     struct Reg regs[16];
     int flags[4];
+    int retstk[256];
+    int pcsp;
     int pc;
     int sp;
     int bp;
@@ -100,6 +102,8 @@ const char *op_name(uint8_t op) {
         case 0x0e: return "modi";
         case 0x0f: return "movl";
         case 0x10: return "halt";
+        case 0x11: return "call";
+        case 0x12: return "ret";
         return "Invalid opcode";
     }
 }
@@ -108,7 +112,7 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
     m->pc = 0;
     while ((unsigned)m->pc < ninstr) {
         struct Instruction instr = stream[m->pc];
-        //printf("Regs: %d %d %d %d, opcode: %s %d, %d, %d (%d)\n", m->regs[0].i, m->regs[1].i, m->regs[2].i, m->regs[3].i, op_name(instr.opcode), instr.arg1, instr.arg2, instr.arg3, (signed)instr.arg23);
+        //printf("Pc: %d, Regs: %d %d %d %d, opcode: %s %d, %d, %d (%d)\n", m->pc, m->regs[0].i, m->regs[1].i, m->regs[2].i, m->regs[3].i, op_name(instr.opcode), instr.arg1, instr.arg2, instr.arg3, (signed)instr.arg23);
         int flg = 0;
         int reg = 0;
         switch (instr.opcode) {
@@ -120,11 +124,11 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
                 break;
             case 0x02:
                 if (m->flags[instr.arg1]) {
-                    m->pc += ((signed)instr.arg23) - 1;
+                    m->pc += ((signed)instr.arg23) / 4 - 1;
                 }
                 break;
             case 0x03:
-                m->pc += (signed)instr.arg23 - 1;
+                m->pc += (signed)instr.arg23 / 4 - 1;
                 break;
             case 0x04:
                 printf("%d\n", m->regs[instr.arg1].i);
@@ -145,6 +149,17 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
                 break;
             case 0x10:
                 return;
+            case 0x11: {
+                uint32_t addr = *((uint32_t*)(stream + ++m->pc));
+                m->retstk[m->pcsp++] = m->pc;
+                m->pc = addr / 4 - 1;
+                break;
+            }
+
+            case 0x12:
+                m->pc = m->retstk[--m->pcsp];
+                break;
+                
         }
         if (flg) {
             if (reg == 0) {
@@ -159,7 +174,7 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
 }
 
 int main() {
-    FILE *fp = fopen("test.vm", "r");
+    FILE *fp = fopen("test.bin", "r");
     if (fp == NULL) {
         return 1;
     }

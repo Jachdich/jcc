@@ -126,11 +126,21 @@ void table_merge(struct SymTable *a, struct SymTable *b) {
     
     a->unres_cap += b->unres_cap;
     a->res_cap += b->res_cap;
-
-
-    a->phoff = realloc(a->phoff, a->phoff_cap + b->phoff_cap);
-    memcpy(a->phoff + a->phoff_cap, b->phoff, b->phoff_cap);
-    a->phoff_cap += b->phoff_cap;
+    if (a->phoff_cap == 0) {
+        a->phoff = NULL;
+    }
+    if (b->phoff_cap != 0) {
+        a->phoff = realloc(a->phoff, a->phoff_cap + b->phoff_cap);
+        for (uint32_t i = 0; i < b->phoff_cap; i++) {
+            a->phoff[a->phoff_cap + i] = b->phoff[i];
+        }
+        a->phoff_cap += b->phoff_cap;
+        printf("phoff: \n");
+        for (uint8_t i = 0; i < a->phoff_cap; i++) {
+            printf("%d, ", a->phoff[i]);
+        }
+        printf("\n");
+    }
 }
 
 void table_init(struct SymTable *t) {
@@ -149,7 +159,7 @@ void table_init(struct SymTable *t) {
 }
 
 int main() {
-    char *names[] = {"print.o", "test.o"};
+    char *names[] = {"test.o", "print.o"};
     uint8_t *total_code = NULL;
     struct SymTable total;
     table_init(&total);
@@ -176,6 +186,7 @@ int main() {
             uint32_t val;
             memcpy(&val, code + table.phoff[i], 4);
             val += delta;
+            printf("Sym: %d\n", val);
             if (val > max_last_id) max_last_id = val;
             memcpy(code + table.phoff[i], &val, 4);
         }
@@ -219,21 +230,33 @@ int main() {
         }
         
         if (sym_index == -1) {
-            printf("Some horrible error happened and the symbol at offset %d is not in any unresolved symbol table\n", total.phoff[i]);
+            printf("Some horrible error happened and the symbol id %d at offset %d is not in any unresolved symbol table\n", val, total.phoff[i]);
             exit(0);
         }
 
         int32_t replace_with = -1;
         for (uint32_t j = 0; j < total.res_cap; j++) {
-            if (strcmp(total.res_syms[sym_index], total.unres_syms[sym_index]))
+            //printf("Comparing '%s' with '%s'\n", total.unres_syms[sym_index], total.res_syms[j]);
+            if (strcmp(total.unres_syms[sym_index], total.res_syms[j]) == 0) {
+                replace_with = total.locs[j];
+                break;
+            }
         }
 
-        if (sym_index == -1) {
-            printf("Unresolved symbol '%s' was not found\n", total.res_syms[sym_index]);
+        if (replace_with == -1) {
+            printf("Unresolved symbol '%s' was not found\n", total.unres_syms[sym_index]);
             exit(0);
         }
-        val = 
+        val = replace_with;
         memcpy(total_code + total.phoff[i], &val, 4);
     }
+
+    FILE *fp = fopen("test.bin", "wb");
+    if (fp == NULL) {
+        fprintf(stderr, "Error opening output file '%s'\n", "test.bin");
+    }
+    fwrite(total_code, 1, total_codesz, fp);
+    fclose(fp);
+    free(total_code);
     return 0;
 }

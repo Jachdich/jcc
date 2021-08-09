@@ -203,7 +203,7 @@ size_t resolve_symbols(Instr *instrs, size_t num_instrs, SymTable *table) {
     table->unres_cap = 64;
     table->curr_id = 1;
 
-    table->placeholder_offsets = malloc(sizeof(uint32_t) * 64);
+    table->phoff = malloc(sizeof(uint32_t) * 64);
     table->phoff_pos = 0;
     table->phoff_cap = 64;
     
@@ -254,10 +254,10 @@ size_t resolve_symbols(Instr *instrs, size_t num_instrs, SymTable *table) {
                     }
                 }
 
-                table->placeholder_offsets[table->phoff_pos++] = (curr_pos + 1) * 4;
+                table->phoff[table->phoff_pos++] = (curr_pos + 1) * 4;
 
                 if (table->phoff_pos >= table->phoff_cap) {
-                    table->placeholder_offsets = realloc(table->placeholder_offsets, sizeof(uint32_t) * (table->phoff_cap *= 2));
+                    table->phoff = realloc(table->phoff, sizeof(uint32_t) * (table->phoff_cap *= 2));
                 }
             }
         }
@@ -362,7 +362,7 @@ void table_free(SymTable *table) {
     free(table->unres_syms);
     free(table->locs);
     free(table->ids);
-    free(table->placeholder_offsets);
+    free(table->phoff);
 }
 
 size_t assemble(Reader *src, uint8_t **out) {
@@ -374,7 +374,7 @@ size_t assemble(Reader *src, uint8_t **out) {
     size_t codesize = reorder_args(&assembled_instructions, instrs, num_instrs, num_words);
 
     struct ObjHeader header = {{'L', 'm', 'a', 'o'}, table.unres_pos, table.res_pos};
-
+    
     size_t unres_size = sizeof(size_t) * 2 * table.unres_pos;
     for (size_t i = 0; i < table.unres_pos; i++) {
         unres_size += strlen(table.unres_syms[i]);
@@ -387,14 +387,20 @@ size_t assemble(Reader *src, uint8_t **out) {
     
     uint8_t *data = malloc(sizeof(header) + codesize + unres_size + res_size + table.phoff_pos * sizeof(uint32_t) + sizeof(uint32_t));
     *out = data;
+
+    //header
     memcpy(data, &header, sizeof(header));
     data += sizeof(header);
-    
+
+    //unres table
     data = write_table(data, table.unres_syms, table.ids, table.unres_pos);
+    //res table
     data = write_table(data, table.res_syms, table.locs, table.res_pos);
+
+    //placeholders table
     memcpy(data, &table.phoff_pos, sizeof(uint32_t));
     data += sizeof(uint32_t);
-    memcpy(data, table.placeholder_offsets, table.phoff_pos * sizeof(uint32_t));
+    memcpy(data, table.phoff, table.phoff_pos * sizeof(uint32_t));
     data += table.phoff_pos * sizeof(uint32_t);
     memcpy(data, assembled_instructions, codesize);
 

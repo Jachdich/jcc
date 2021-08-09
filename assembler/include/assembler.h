@@ -22,7 +22,7 @@ struct SymTable {
     uint32_t *locs;
     uint32_t *ids;
 
-    uint32_t *placeholder_offsets;
+    uint32_t *phoff;
     uint32_t phoff_pos;
     uint32_t phoff_cap;
     

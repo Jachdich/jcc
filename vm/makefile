@@ -1,7 +1,7 @@
 SOURCES := $(shell find src -type f -name *.c)
 HEADERS := $(shell find include -type f -name *.h)
 OBJECTS := $(patsubst src/%,obj/%,$(SOURCES:.c=.o))
-EXENAME := vm
+EXENAME := jvm
 
 $(EXENAME): $(OBJECTS)
 	gcc $(OBJECTS) -o $@
@@ -15,7 +15,7 @@ debug: $(EXENAME)
 
 
 run: $(EXENAME)
-	./vm
+	./jvm
 	
 clean:
 	rm obj/*.o

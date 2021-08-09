@@ -1,17 +1,24 @@
-main: main.o
-	gcc -no-pie main.o -o main
+SOURCES := $(shell find src -type f -name *.jc)
+HEADERS := $(shell find include -type f -name *.h)
+OBJECTS := $(patsubst src/%,obj/%,$(SOURCES:.jc=.o))
 
-clean:
-	rm -f main.s main main.o
+main: $(OBJECTS)
+	jld $(OBJECTS) -o $@
+
+asm/%.jas: src/%.jc $(HEADERS)
+	@mkdir -p asm
+	jcc -o $@ $<
+
+obj/%.o: asm/%.jas
+	@mkdir -p obj
+	jas -o $@ $<
 
 run: main
-	./main
-	
-.PHONY: run
+	jvm main
+
+clean:
+	rm -rf obj/*.o
+	rm -rf asm/*.jas
+	rm -rf main
+
 .PHONY: clean
-
-main.s: main.jc
-	../jcc main.jc -o main.s
-
-main.o: main.s
-	nasm -felf64 main.s

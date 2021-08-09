@@ -7,7 +7,7 @@ $(EXENAME): $(OBJECTS)
 	gcc $(OBJECTS) -o $@
 
 libjld.a: $(OBJECTS)
-	ar -rc $@ $(filter-out obj/main.o,$(OBJECTS))
+	ar -rc $@ $(filter-out obj/args.o obj/main.o,$(OBJECTS))
 	ranlib $@
 
 obj/%.o: src/%.c $(HEADERS)

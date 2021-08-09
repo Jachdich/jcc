@@ -112,7 +112,7 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
     m->pc = 0;
     while ((unsigned)m->pc < ninstr) {
         struct Instruction instr = stream[m->pc];
-        //printf("Pc: %d, Regs: %d %d %d %d, opcode: %s %d, %d, %d (%d)\n", m->pc, m->regs[0].i, m->regs[1].i, m->regs[2].i, m->regs[3].i, op_name(instr.opcode), instr.arg1, instr.arg2, instr.arg3, (signed)instr.arg23);
+        printf("Pc: %d, Regs: %d %d %d %d, opcode: %s %d, %d, %d (%d)\n", m->pc, m->regs[0].i, m->regs[1].i, m->regs[2].i, m->regs[3].i, op_name(instr.opcode), instr.arg1, instr.arg2, instr.arg3, (signed)instr.arg23);
         int flg = 0;
         int reg = 0;
         switch (instr.opcode) {
@@ -157,7 +157,7 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
             }
 
             case 0x12:
-                m->pc = m->retstk[--m->pcsp];
+                m->pc = m->retstk[--m->pcsp] - 1;
                 break;
                 
         }
@@ -173,8 +173,12 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
     }
 }
 
-int main() {
-    FILE *fp = fopen("test.bin", "r");
+int main(int argc, char **argv) {
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s filename\n", argv[0]);
+        return 1;
+    }
+    FILE *fp = fopen(argv[1], "r");
     if (fp == NULL) {
         return 1;
     }

@@ -60,7 +60,8 @@ int main(int argc, char **argv) {
     free(src);
 
     AST ast;
-    int ast_err = ast_gen(&ast, &s);
+    SymTable table;
+    int ast_err = ast_gen(&ast, &s, &table);
     if (ast_err != 0) {
         fprintf(stderr, "%s: Parser returned non-zero status %d\n", argv[0], ast_err);
         lex_free(&s);
@@ -71,7 +72,7 @@ int main(int argc, char **argv) {
     
     ast_print(&ast);
     char *code;
-    cg_gen(&ast, &code);
+    cg_gen(&ast, &code, &table);
 
     if (args.ofname == NULL) {
         printf("%s", code);

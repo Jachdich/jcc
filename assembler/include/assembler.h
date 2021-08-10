@@ -14,6 +14,7 @@ struct Instr {
     uint8_t opcode;
     Arg *args;
     char *label_at;
+    int is_lit;
 };
 
 struct SymTable {

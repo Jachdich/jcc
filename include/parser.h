@@ -90,7 +90,7 @@ struct SymTable {
     size_t pos;
 };
 
-int ast_gen(AST * ast, LexTokenStream *s);
+int ast_gen(AST * ast, LexTokenStream *s, SymTable *scope);
 void ast_print(AST *ast);
 void ast_free(AST *ast);
 const char *asttypetostr(ASTType ty);

@@ -189,6 +189,9 @@ size_t linker_link(uint8_t **input, size_t n, size_t *inp_lens, uint8_t **data) 
         
         if (sym_index == -1) {
             printf("Some horrible error happened and the symbol id %d at offset %d is not in any unresolved symbol table\n", val, total.phoff[i]);
+            for (uint32_t e = 0; e < total_codesz; e += 4) {
+                printf("%02x %02x %02x %02x\n", total_code[e], total_code[e + 1], total_code[e + 2], total_code[e + 3]);
+            }
             exit(0);
         }
 

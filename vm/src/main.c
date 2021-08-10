@@ -159,6 +159,18 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
             case 0x12:
                 m->pc = m->retstk[--m->pcsp] - 1;
                 break;
+
+            case 0x13: {
+                uint32_t addr = *((uint32_t*)(stream + ++m->pc));
+                *((uint32_t*)(stream + addr)) = m->regs[instr.arg1].i;
+                break;
+            }
+
+            case 0x14: {
+                uint32_t addr = *((uint32_t*)(stream + ++m->pc));
+                m->regs[instr.arg1].i = *((uint32_t*)(stream + addr));
+                break;
+            }
                 
         }
         if (flg) {

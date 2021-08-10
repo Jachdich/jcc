@@ -2,6 +2,6 @@
 #define __CODEGEN_H
 #include "../include/parser.h"
 
-Error cg_gen(AST *ast, char **code);
+Error cg_gen(AST *ast, char **code, SymTable *table);
 
 #endif

@@ -16,6 +16,7 @@ struct CGState {
     size_t num_regs;
     char *regs_free;
     char **reg_names;
+    SymTable *table;
 };
 
 typedef struct CGState CGState;
@@ -34,7 +35,7 @@ void state_alloc_atleast(CGState *s, size_t bytes) {
     s->code_capacity = to_alloc;
 }
 
-void state_init(CGState *s, size_t num_regs, char **reg_names) {
+void state_init(CGState *s, size_t num_regs, char **reg_names, struct SymTable *table) {
     s->regs_free = malloc(num_regs);
     s->num_regs = num_regs;
     s->reg_names = reg_names;
@@ -44,6 +45,7 @@ void state_init(CGState *s, size_t num_regs, char **reg_names) {
     s->code = malloc(8);
     s->code_len = 0;
     s->code_capacity = 8;
+    s->table = table;
 }
 
 void state_free(CGState *s) {
@@ -104,16 +106,34 @@ void cgprintint(CGState *state, int reg) {
     state->code_len += sprintf(state->code + state->code_len, "\tout\t%s\n", state->reg_names[reg]);
 }
 
-int gen_ast(AST *ast, CGState *state) {
+//void cgdefglob(CGState *state) {
+//    state_alloc_atleast()
+//}
+
+void cgstoreglob(CGState *state, int reg, char *ident) {
+    state_alloc_atleast(state, 0);
+    state->code_len += sprintf(state->code + state->code_len, "\tmovra\t%s -> %s\n", state->reg_names[reg], ident);
+}
+
+char *sym_find(SymTable *table, size_t ident) {
+    for (size_t i = 0; i < table->pos; i++) {
+        if (table->symbols[i].ident == ident) {
+            return table->symbols[i].s;
+        }
+    }
+    return NULL;
+}
+
+int gen_ast(AST *ast, CGState *state, int reg) {
     int *ch_regs;
     if (ast->children_n > 0) {
         ch_regs = malloc(sizeof(int) * ast->children_n);
         for (size_t i = 0; i < ast->children_n; i++) {
-           ch_regs[i] = gen_ast(ast->children[i], state);
+           ch_regs[i] = gen_ast(ast->children[i], state, i > 0 ? ch_regs[i - 1] : -1);
         }
     }
 
-    int res;
+    int res = -1;
 
     switch (ast->type) {
         case AST_PROG:   break; //already calculated all the children so leave
@@ -122,6 +142,8 @@ int gen_ast(AST *ast, CGState *state) {
         case AST_MUL:    res = cgmul(ch_regs[0], ch_regs[1], state); break;
         case AST_DIV:    res = cgdiv(ch_regs[0], ch_regs[1], state); break;
         case AST_INT_LIT:res = cgload(ast->i, state); break;
+        case AST_LVIDENT:cgstoreglob(state, reg, sym_find(state->table, ast->i)); break;
+        case AST_ASSIGN: res = ch_regs[0]; break;
         default:
             fprintf(stderr, "Error: unrecognised token '%s'\n", asttypetostr(ast->type));
             exit(0);
@@ -134,21 +156,28 @@ int gen_ast(AST *ast, CGState *state) {
     return res;
 }
 
-Error cg_gen(AST *ast, char **code) {
+Error cg_gen(AST *ast, char **code, SymTable *table) {
     char *reg_names[] = {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"};
     const char *preamble = "_start:\n";
     const char *postamble = "\tret\n";
 
+    size_t decl_len = 128; //fuck off
     size_t pre_len  = strlen(preamble);
     size_t post_len = strlen(postamble);
     
     CGState state;
-    state_init(&state, 16, reg_names);
-    state_alloc_atleast(&state, pre_len);
+    state_init(&state, 16, reg_names, table);
+
+    state_alloc_atleast(&state, pre_len + decl_len);
+
+    for (uint32_t i = 0; i < table->pos; i++) {
+        state.code_len += sprintf(state.code + state.code_len, "%s: dd 0\n", table->symbols[i].s);
+    }
+    
     strcpy(state.code + state.code_len, preamble);
     state.code_len += pre_len;
     
-    gen_ast(ast, &state);
+    gen_ast(ast, &state, -1);
     
     state_alloc_atleast(&state, post_len);
     strcpy(state.code + state.code_len, postamble);

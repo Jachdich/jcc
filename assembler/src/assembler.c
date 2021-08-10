@@ -14,6 +14,10 @@ int issep(char c) {
     return iswhite(c) || c == ',';
 }
 
+int isnum(char c) {
+    return c <= '9' && c >= '0';
+}
+
 int is_intlit(char *str) {
     while (!issep(*str) && *str != 0) {
         if (*str < '0' || *str > '9') return 0;
@@ -29,7 +33,7 @@ int is_reg(char *str) {
 }
 
 int is_twobyte(uint8_t opcode) {
-    return opcode == 0x0f || opcode == 0x11;
+    return opcode == 0x0f || opcode == 0x11 || opcode == 0x13 || opcode == 0x14;
 }
 
 uint8_t get_opcode(char **str) {
@@ -59,6 +63,8 @@ uint8_t get_opcode(char **str) {
     if (strcmp(init, "halt") == 0) return 16;
     if (strcmp(init, "call") == 0) return 17;
     if (strcmp(init, "ret")  == 0) return 18;
+    if (strcmp(init, "movra") == 0) return 19;
+    if (strcmp(init, "movar") == 0) return 20;
     printf("Unknown opcode %s\n", init);
     return -1;
 }
@@ -167,9 +173,27 @@ size_t gen_instrs(Reader *r, Instr **instrs_ptr) {
         char *lab = read_label(&line);
 
         if (*line == 0) { next_lab = lab; continue; }
-        
-        uint8_t opcode = get_opcode(&line);
-        Arg *args = read_args(line);
+
+        uint8_t opcode;
+        Arg *args;
+        int is_lit;
+        if (strncmp(line, "dd ", 3) == 0) {
+            uint32_t val = 0;
+            line += 3;
+            while (isnum(*line)) {
+                val = val * 10 + *line++ - '0';
+            }
+            opcode = val & 0xFF;
+            args = malloc(sizeof(Arg) * 3);
+            args[0] = (Arg){(val >> 8) & 0xFF, NULL};
+            args[1] = (Arg){(val >> 16) & 0xFF, NULL};
+            args[2] = (Arg){(val >> 24) & 0xFF, NULL};
+            is_lit = 1;
+        } else {
+            opcode = get_opcode(&line);
+            args = read_args(line);
+            is_lit = 0;
+        }
         
         if (lab != NULL && next_lab != NULL) {
             printf("Error: two labels pointing to the same line! (fix me please this is a stupid restriction)\n");
@@ -180,8 +204,8 @@ size_t gen_instrs(Reader *r, Instr **instrs_ptr) {
             lab = next_lab;
             next_lab = NULL;
         }
-        
-        instrs[len++] = (Instr){opcode, args, lab};
+                
+        instrs[len++] = (Instr){opcode, args, lab, is_lit};
 
         if (len >= cap) {
             *instrs_ptr = realloc(instrs, sizeof(Instr) * (cap *= 2));
@@ -286,29 +310,39 @@ size_t reorder_args(uint8_t **code_ptr, Instr *instrs, size_t num_instrs, size_t
         Instr in = instrs[i];
         Arg *a = in.args;
         code[pos++] = in.opcode;
-        switch (in.opcode) {
-            case 0x00: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = 0;     break;
-            case 0x01: code[pos++] = a[1].i; writeshort(code, &pos, a[0].i);            break;
-            case 0x02: code[pos++] = a[0].i; writeshort(code, &pos, a[1].i);            break;
-            case 0x03: code[pos++] = 0;      writeshort(code, &pos, a[0].i);            break;
-            case 0x04: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0;          break;
-            
-            case 0x05: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;
-            case 0x06: code[pos++] = a[0].i; writeshort(code, &pos, a[1].i);            break;
-            case 0x07: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;
-            case 0x08: code[pos++] = a[0].i; writeshort(code, &pos, a[1].i);            break;
-            case 0x09: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;
-            case 0x0a: code[pos++] = a[0].i; writeshort(code, &pos, a[1].i);            break;
-            case 0x0b: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;
-            case 0x0c: code[pos++] = a[0].i; writeshort(code, &pos, a[1].i);            break;
-            case 0x0d: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;
-            case 0x0e: code[pos++] = a[0].i; writeshort(code, &pos, a[1].i);            break;
+        if (in.is_lit) {
+            code[pos++] = a[0].i;
+            code[pos++] = a[1].i;
+            code[pos++] = a[2].i;
 
-            case 0x0f: code[pos++] = a[1].i; code[pos++] = 0; code[pos++] = 0; writeqword(code, &pos, a[0].i); break;
-            case 0x10: code[pos++] = 0; code[pos++] = 0; code[pos++] = 0; break;
-            case 0x11: code[pos++] = 0; code[pos++] = 0; code[pos++] = 0; writeqword(code, &pos, a[0].i); break;
-            case 0x12: code[pos++] = 0; code[pos++] = 0; code[pos++] = 0; break;
-            default: break;
+            printf("LIT: %02x %02x %02x %02x\n", in.opcode, a[0].i, a[1].i, a[2].i);
+        } else {
+            switch (in.opcode) {
+                case 0x00: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = 0;     break;
+                case 0x01: code[pos++] = a[1].i; writeshort(code, &pos, a[0].i);            break;
+                case 0x02: code[pos++] = a[0].i; writeshort(code, &pos, a[1].i);            break;
+                case 0x03: code[pos++] = 0;      writeshort(code, &pos, a[0].i);            break;
+                case 0x04: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0;          break;
+                
+                case 0x05: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;
+                case 0x06: code[pos++] = a[0].i; writeshort(code, &pos, a[1].i);            break;
+                case 0x07: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;
+                case 0x08: code[pos++] = a[0].i; writeshort(code, &pos, a[1].i);            break;
+                case 0x09: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;
+                case 0x0a: code[pos++] = a[0].i; writeshort(code, &pos, a[1].i);            break;
+                case 0x0b: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;
+                case 0x0c: code[pos++] = a[0].i; writeshort(code, &pos, a[1].i);            break;
+                case 0x0d: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;
+                case 0x0e: code[pos++] = a[0].i; writeshort(code, &pos, a[1].i);            break;
+
+                case 0x0f: code[pos++] = a[1].i; code[pos++] = 0; code[pos++] = 0; writeqword(code, &pos, a[0].i); break;
+                case 0x10: code[pos++] = 0; code[pos++] = 0; code[pos++] = 0; break;
+                case 0x11: code[pos++] = 0; code[pos++] = 0; code[pos++] = 0; writeqword(code, &pos, a[0].i); break;
+                case 0x12: code[pos++] = 0; code[pos++] = 0; code[pos++] = 0; break;
+                case 0x13: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0; writeqword(code, &pos, a[1].i); break;
+                case 0x14: code[pos++] = a[1].i; code[pos++] = 0; code[pos++] = 0; writeqword(code, &pos, a[0].i); break;
+                default: break;
+            }
         }
         free(in.args);
     }

@@ -67,7 +67,7 @@ size_t sym_new(SymTable *t, char *name, VarType type) {
     return s.ident;
 }
 
-size_t sym_find(SymTable *t, char *name) {
+size_t sym_find_id(SymTable *t, char *name) {
     for (size_t i = 0; i < t->pos; i++) {
         if (strcmp(name, t->symbols[i].s) == 0) {
             return i;
@@ -99,7 +99,7 @@ AST *number(LexTokenStream *s, SymTable *scope) {
         return ast_construct(NULL, 0, AST_INT_LIT, tok->i);
     } else if (type == TOK_IDENT) {
         LexToken *tok = lex_consume(s);
-        size_t ident = sym_find(scope, tok->str);
+        size_t ident = sym_find_id(scope, tok->str);
         if (ident == (size_t)-1) {
             fprintf(stderr, "Error: variable '%s' not defined", tok->str);
             exit(0);
@@ -137,8 +137,8 @@ AST *vardecl(LexTokenStream *s, SymTable *scope) {
             AST *child2 = expr(s, scope);
 
             AST **children = malloc(sizeof(AST*) * 2);
-            children[0] = child1;
-            children[1] = child2;
+            children[1] = child1;
+            children[0] = child2;
             AST *out = ast_construct(children, 2, AST_ASSIGN, 0);
             LexToken *tok = lex_consume(s);
             if (tok->type != TOK_SEMICOLON) {
@@ -170,13 +170,13 @@ AST *varassign(LexTokenStream *s, SymTable *scope) {
     }
 
     AST **children = malloc(sizeof(AST*) * 2);
-    size_t ident = sym_find(scope, t->str);
+    size_t ident = sym_find_id(scope, t->str);
     if (ident == (size_t)-1) {
         fprintf(stderr, "Error: variable '%s' not defined", t->str);
         exit(0);
     }
-    children[0] = ast_construct(NULL, 0, AST_LVIDENT, ident);
-    children[1] = expr(s, scope);
+    children[1] = ast_construct(NULL, 0, AST_LVIDENT, ident);
+    children[0] = expr(s, scope);
     if (lex_consume(s)->type != TOK_SEMICOLON) {
         printf("what\n");
         exit(0);
@@ -288,11 +288,10 @@ ASTList ASTstatements(LexTokenStream *s, SymTable *scope) {
     }
 }
 
-int ast_gen(AST *ast, LexTokenStream *s) {
+int ast_gen(AST *ast, LexTokenStream *s, SymTable *scope) {
     s->pos = s->start;
-    SymTable scope;
-    sym_init(&scope, NULL);
-    ASTList exprast = ASTstatements(s, &scope);
+    sym_init(scope, NULL);
+    ASTList exprast = ASTstatements(s, scope);
 
     AST a;
     a.children = exprast.smts;

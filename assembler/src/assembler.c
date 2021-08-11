@@ -410,7 +410,7 @@ size_t assemble(Reader *src, uint8_t **out) {
     uint8_t *assembled_instructions;
     size_t codesize = reorder_args(&assembled_instructions, instrs, num_instrs, num_words);
 
-    struct ObjHeader header = {{'L', 'm', 'a', 'o'}, table.unres_pos, table.res_pos};
+    struct ObjHeader header = {{0xBA, 'L', 'L', 'S'}, table.unres_pos, table.res_pos};
     
     size_t unres_size = sizeof(size_t) * 2 * table.unres_pos;
     for (size_t i = 0; i < table.unres_pos; i++) {

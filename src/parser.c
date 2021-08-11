@@ -11,6 +11,13 @@ ASTType lextoast(LexTokenType ty) {
         case TOK_SUB:       return AST_SUB;
         case TOK_MUL:       return AST_MUL;
         case TOK_DIV:       return AST_DIV;
+
+        case TOK_GT:        return AST_GT;
+        case TOK_GTE:       return AST_GTE;
+        case TOK_LT:        return AST_LT;
+        case TOK_LTE:       return AST_LTE;
+        case TOK_COMPARE:   return AST_COMPARE;
+        
         case TOK_KINT:      return AST_KINT;
         case TOK_KCHAR:     return AST_KCHAR;
         case TOK_KSTRUCT:   return AST_KSTRUCT;
@@ -122,35 +129,27 @@ AST *vardecl(LexTokenStream *s, SymTable *scope) {
     case TOK_KENUM:
     case TOK_KLONG:
     case TOK_KSHORT:
-        LexToken *t = lex_consume(s);
-        if (t->type == TOK_IDENT) {
-            size_t ident = sym_new(scope, t->str, asttovar(lextoast(type)));
-            AST *child1 = ast_construct(NULL, 0, AST_LVIDENT, ident);
-            LexToken *t2 = lex_consume(s);
-            if (t2->type != TOK_ASSIGN) {
-                if (t2->type == TOK_SEMICOLON) {
-                    return NULL;
-                } else {
-                    fprintf(stderr, "Error: expected assignment operator or semicolon, got %s\n", toktostr(t->type));
-                    exit(0);
-                }
-            }
-            AST *child2 = expr(s, scope);
-
-            AST **children = malloc(sizeof(AST*) * 2);
-            children[1] = child1;
-            children[0] = child2;
-            AST *out = ast_construct(children, 2, AST_ASSIGN, 0);
-            LexToken *tok = lex_consume(s);
-            if (tok->type != TOK_SEMICOLON) {
-                printf("what, expected a fucking semicolon you moron, got whatever the fuck '%s' is instead\n", toktostr(tok->type));
+        LexToken *t = lex_consume_assert(s, TOK_IDENT);
+        size_t ident = sym_new(scope, t->str, asttovar(lextoast(type)));
+        AST *child1 = ast_construct(NULL, 0, AST_LVIDENT, ident);
+        LexToken *t2 = lex_consume(s);
+        if (t2->type != TOK_ASSIGN) {
+            if (t2->type == TOK_SEMICOLON) {
+                return NULL;
+            } else {
+                fprintf(stderr, "Error: expected assignment operator or semicolon, got %s\n", toktostr(t->type));
                 exit(0);
             }
-            return out;
-        } else {
-            fprintf(stderr, "Error: expected identifier, got %s\n", toktostr(t->type));
-            exit(0);
         }
+        AST *child2 = expr(s, scope);
+
+        AST **children = malloc(sizeof(AST*) * 2);
+        children[1] = child1;
+        children[0] = child2;
+        AST *out = ast_construct(children, 2, AST_ASSIGN, 0);
+        lex_consume_assert(s, TOK_SEMICOLON);
+        return out;
+
         break;
     default:
         fprintf(stderr, "Error: expected type identifier, got %s\n", toktostr(type));
@@ -159,16 +158,8 @@ AST *vardecl(LexTokenStream *s, SymTable *scope) {
 }
 
 AST *varassign(LexTokenStream *s, SymTable *scope) {
-    LexToken *t = lex_consume(s);
-    if (t->type != TOK_IDENT) {
-        fprintf(stderr, "Error: expected identifier, got %s\n", toktostr(t->type));
-        exit(0);
-    }
-
-    if (lex_consume(s)->type != TOK_ASSIGN) {
-        fprintf(stderr, "Error: expected assignment operator, got %s\n", toktostr(t->type));
-        exit(0);
-    }
+    LexToken *t = lex_consume_assert(s, TOK_IDENT);
+    lex_consume_assert(s, TOK_ASSIGN);
 
     AST **children = malloc(sizeof(AST*) * 2);
     size_t ident = sym_find_id(scope, t->str);
@@ -178,78 +169,71 @@ AST *varassign(LexTokenStream *s, SymTable *scope) {
     }
     children[1] = ast_construct(NULL, 0, AST_LVIDENT, ident);
     children[0] = expr(s, scope);
-    if (lex_consume(s)->type != TOK_SEMICOLON) {
-        printf("what\n");
-        exit(0);
-    }
+    lex_consume_assert(s, TOK_SEMICOLON);
     return ast_construct(children, 2, AST_ASSIGN, 0);
+}
+
+
+AST *printsmt(LexTokenStream *s, SymTable *scope) {
+    lex_consume_assert(s, TOK_KPRINT);
+    AST *e = expr(s, scope);
+    AST **child = malloc(sizeof(AST*));
+    child[0] = e;
+    AST *ret = ast_construct(child, 1, AST_KPRINT, 0);
+    lex_consume_assert(s, TOK_SEMICOLON);
+    return ret;
 }
 
 AST *mulexpr(LexTokenStream *s, SymTable *scope) {
     AST *lhs = number(s, scope);
     LexTokenType type = lex_peek(s)->type;
-    if (type == TOK_SEMICOLON) {
-        return lhs;
-    }
-    
     while (type == TOK_MUL || type == TOK_DIV) {
         LexToken *oper = lex_consume(s);
         AST *rhs = number(s, scope);
-        AST *tmp = malloc(sizeof(AST));
-        tmp->children = malloc(sizeof(AST*) * 2);
-        tmp->children_n = 2;
-        tmp->type = lextoast(oper->type);
-        tmp->children[0] = lhs;
-        tmp->children[1] = rhs;
-        lhs = tmp;
-        if (lex_peek(s)->type == TOK_SEMICOLON) break;
+        printf("Mulexpr reading rhs %lu\n", rhs->i);
+        AST **children = malloc(sizeof(AST*) * 2);
+        children[0] = lhs;
+        children[1] = rhs;
+        lhs = ast_construct(children, 2, lextoast(oper->type), 0);
+        type = lex_peek(s)->type;
     }
     
     return lhs;
-    //} else {
-    //    fprintf(stderr, "Error: expected * or /, got %s\n", toktostr(type));
-    //    //return lhs;
-    //}
+
 }
 
-AST *printsmt(LexTokenStream *s, SymTable *scope) {
-    lex_consume_assert(s, TOK_KPRINT);
-    AST *e = expr(s, scope);
-    //AST **child = malloc(sizeof(AST*));
-    //child[0] = e;
-    //AST *ret = ast_construct(child, 1, AST_KPRINT, 0);
-    AST *tmp = malloc(sizeof(AST));
-    tmp->children = malloc(sizeof(AST*) * 1);
-    tmp->children_n = 1;
-    tmp->type = AST_KPRINT;
-    tmp->children[0] = e;
-    lex_consume_assert(s, TOK_SEMICOLON);
-    return tmp;
+AST *addexpr(LexTokenStream *s, SymTable *scope) {
+    AST *lhs = mulexpr(s, scope);
+    LexTokenType type = lex_peek(s)->type;
+    printf("addexpr: %s\n", toktostr(type));
+    while (type == TOK_ADD || type == TOK_SUB) {
+        LexToken *oper = lex_consume(s);
+        AST *rhs = mulexpr(s, scope);
+        printf("Addexpr reading rhs %lu\n", rhs->i);
+        AST **children = malloc(sizeof(AST*) * 2);
+        children[0] = lhs;
+        children[1] = rhs;
+        lhs = ast_construct(children, 2, lextoast(oper->type), 0);
+        type = lex_peek(s)->type;
+    }
+    return lhs;
 }
 
 AST *expr(LexTokenStream *s, SymTable *scope) {
-    AST *lhs = mulexpr(s, scope);
+    AST *lhs = addexpr(s, scope);
     LexTokenType type = lex_peek(s)->type;
-    if (type == TOK_SEMICOLON) {
-        return lhs;
-    } else if (type == TOK_ADD || type == TOK_SUB) {
-        while (1) {
-            LexToken *oper = lex_consume(s);
-            AST *rhs = mulexpr(s, scope);
-            AST *tmp = malloc(sizeof(AST));
-            tmp->children = malloc(sizeof(AST*) * 2);
-            tmp->children_n = 2;
-            tmp->type = lextoast(oper->type);
-            tmp->children[0] = lhs;
-            tmp->children[1] = rhs;
-            lhs = tmp;
-            if (lex_peek(s)->type == TOK_SEMICOLON) break;
-        }
-        return lhs;
-    } else {
-        fprintf(stderr, "Error: expected + or -, got %s\n", toktostr(type));
-        return NULL;
+    while (type == TOK_COMPARE || type == TOK_GT || type == TOK_GTE || type == TOK_LT || type == TOK_LTE) {
+        printf("expr: %s\n", toktostr(type));
+        LexToken *oper = lex_consume(s);
+        AST *rhs = addexpr(s, scope);
+        printf("Expr reading rhs %lu\n", rhs->i);
+        AST **children = malloc(sizeof(AST*) * 2);
+        children[0] = lhs;
+        children[1] = rhs;
+        lhs = ast_construct(children, 2, lextoast(oper->type), 0);
+        type = lex_peek(s)->type;
     }
+    return lhs;
 }
 
 struct ASTList {
@@ -293,9 +277,6 @@ ASTList ASTstatements(LexTokenStream *s, SymTable *scope) {
                 break;
             case TOK_IDENT:
                 ast_list_append(&smts, varassign(s, scope));
-                break;
-            case TOK_INT:
-                ast_list_append(&smts, expr(s, scope));
                 break;
             case TOK_KPRINT:
                 ast_list_append(&smts, printsmt(s, scope));

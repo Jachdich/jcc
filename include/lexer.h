@@ -93,5 +93,6 @@ void lex_extend_tokens(LexTokenStream *s, LexTokenStream *src);
 //LexToken lex_clone_token(LexToken *t);
 const char *toktostr(LexTokenType tok);
 
-void lex_consume_assert(LexTokenStream *s, LexTokenType ty);
+LexToken *lex_consume_assert(LexTokenStream *s, LexTokenType ty);
+LexToken *lex_peek_assert(LexTokenStream *s, LexTokenType ty);
 #endif

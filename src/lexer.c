@@ -108,6 +108,12 @@ Error lex_read_token(Reader *r, LexToken *tok) {
     } else if (reader_consume_if(r, '-')) { *tok = (LexToken){NULL, 0, TOK_SUB};
     } else if (reader_consume_if(r, '*')) { *tok = (LexToken){NULL, 0, TOK_MUL};
     } else if (reader_consume_if(r, '/')) { *tok = (LexToken){NULL, 0, TOK_DIV};
+    } else if (reader_consume_if(r, '>')) { 
+        if (reader_peek(r) == '=') { *tok = (LexToken){NULL, 0, TOK_GTE};
+        } else {                     *tok = (LexToken){NULL, 0, TOK_GT}; }
+    } else if (reader_consume_if(r, '<')) {
+        if (reader_peek(r) == '=') { *tok = (LexToken){NULL, 0, TOK_LTE};
+        } else {                     *tok = (LexToken){NULL, 0, TOK_LT}; }
     } else {
         *tok = (LexToken){NULL, 0, TOK_INVALID};
         char *buf = malloc(40);
@@ -164,20 +170,23 @@ LexToken *lex_peek(LexTokenStream *s) {
     //printf("Peeking at type %s\n", toktostr(s->pos->type));
     return s->pos;
 }
-/*
-void lex_free_token_n(LexToken *t, unsigned long int a) {
-    printf("freeing string for tokn %lu in stream %lu with value %s\n", (long unsigned int)t, a, t->str);
-    if (t->str != NULL) {
-        free(t->str);
-    }
-}*/
 
-void lex_consume_assert(LexTokenStream *s, LexTokenType ty) {
+LexToken *lex_consume_assert(LexTokenStream *s, LexTokenType ty) {
     LexToken *t = lex_consume(s);
+    if (t->type != ty) {
+        fprintf(stderr, "Syntax error: Expected '%s', but got '%s' instead (value %lu).\n", toktostr(ty), toktostr(t->type), t->i);
+        exit(0);
+    }
+    return t;
+}
+
+LexToken *lex_peek_assert(LexTokenStream *s, LexTokenType ty) {
+    LexToken *t = lex_peek(s);
     if (t->type != ty) {
         fprintf(stderr, "Syntax error: Expected '%s', but got '%s' instead.\n", toktostr(ty), toktostr(t->type));
         exit(0);
     }
+    return t;
 }
 
 void lex_free_token(LexToken *t) {

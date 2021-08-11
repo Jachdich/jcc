@@ -16,7 +16,20 @@ struct CGState {
     size_t num_regs;
     char *regs_free;
     char **reg_names;
+    char **op_names;
     SymTable *table;
+};
+
+enum {
+    CG_ADD,
+    CG_SUB,
+    CG_MUL,
+    CG_DIV,
+    CG_CMP,
+    CG_LT,
+    CG_LTE,
+    CG_GT,
+    CG_GTE
 };
 
 typedef struct CGState CGState;
@@ -39,7 +52,7 @@ void state_alloc_atleast(CGState *s, size_t bytes) {
     s->code_capacity = to_alloc;
 }
 
-void state_init(CGState *s, size_t num_regs, char **reg_names, struct SymTable *table) {
+void state_init(CGState *s, size_t num_regs, char **reg_names, char **op_names, struct SymTable *table) {
     s->regs_free = malloc(num_regs);
     s->num_regs = num_regs;
     s->reg_names = reg_names;
@@ -50,6 +63,7 @@ void state_init(CGState *s, size_t num_regs, char **reg_names, struct SymTable *
     s->code_len = 0;
     s->code_capacity = 8;
     s->table = table;
+    s->op_names = op_names;
 }
 
 void state_free(CGState *s) {
@@ -70,30 +84,9 @@ void reg_free(CGState *state, int reg) {
     state->regs_free[reg] = 0;
 }
 
-int cgadd(int rega, int regb, CGState *state) {
+int cgmathop(int rega, int regb, int op, CGState *state) {
     state_alloc_atleast(state, 12 + REGSTRLEN * 3);
-    state->code_len += sprintf(state->code + state->code_len, "\tadd\t%s, %s -> %s\n", state->reg_names[regb], state->reg_names[rega], state->reg_names[regb]);
-    reg_free(state, rega);
-    return regb;
-}
-
-int cgsub(int rega, int regb, CGState *state) {
-    state_alloc_atleast(state, 12 + REGSTRLEN * 3);
-    state->code_len += sprintf(state->code + state->code_len, "\tsub\t%s, %s -> %s\n", state->reg_names[rega], state->reg_names[regb], state->reg_names[rega]);
-    reg_free(state, regb);
-    return rega;
-}
-
-int cgmul(int rega, int regb, CGState *state) {
-    state_alloc_atleast(state, 12 + REGSTRLEN * 3);
-    state->code_len += sprintf(state->code + state->code_len, "\tmul\t%s, %s -> %s\n", state->reg_names[regb], state->reg_names[rega], state->reg_names[regb]);
-    reg_free(state, rega);
-    return regb;
-}
-
-int cgdiv(int rega, int regb, CGState *state) {
-    state_alloc_atleast(state, 12 + REGSTRLEN * 3);
-    state->code_len += sprintf(state->code + state->code_len, "\tdiv\t%s, %s -> %s\n", state->reg_names[rega], state->reg_names[regb], state->reg_names[rega]);
+    state->code_len += sprintf(state->code + state->code_len, "\t%s\t%s, %s -> %s\n", state->op_names[op], state->reg_names[rega], state->reg_names[regb], state->reg_names[rega]);
     reg_free(state, regb);
     return rega;
 }
@@ -149,10 +142,15 @@ int gen_ast(AST *ast, CGState *state, int reg) {
 
     switch (ast->type) {
         case AST_PROG:   break; //already calculated all the children so leave
-        case AST_ADD:    res = cgadd(ch_regs[0], ch_regs[1], state); break;
-        case AST_SUB:    res = cgsub(ch_regs[0], ch_regs[1], state); break;
-        case AST_MUL:    res = cgmul(ch_regs[0], ch_regs[1], state); break;
-        case AST_DIV:    res = cgdiv(ch_regs[0], ch_regs[1], state); break;
+        case AST_ADD:    res = cgmathop(ch_regs[0], ch_regs[1], CG_ADD, state); break;
+        case AST_SUB:    res = cgmathop(ch_regs[0], ch_regs[1], CG_SUB, state); break;
+        case AST_MUL:    res = cgmathop(ch_regs[0], ch_regs[1], CG_MUL, state); break;
+        case AST_DIV:    res = cgmathop(ch_regs[0], ch_regs[1], CG_DIV, state); break;
+        case AST_COMPARE:res = cgmathop(ch_regs[0], ch_regs[1], CG_CMP, state); break;
+        case AST_GT:     res = cgmathop(ch_regs[0], ch_regs[1], CG_GT, state); break;
+        case AST_GTE:    res = cgmathop(ch_regs[0], ch_regs[1], CG_GTE, state); break;
+        case AST_LT:     res = cgmathop(ch_regs[0], ch_regs[1], CG_LT, state); break;
+        case AST_LTE:    res = cgmathop(ch_regs[0], ch_regs[1], CG_LTE, state); break;
         case AST_INT_LIT:res = cgloadint(ast->i, state); break;
         case AST_IDENT:  res = cgloadglob(state, sym_find(state->table, ast->i)); break;
         case AST_LVIDENT:cgstoreglob(state, reg, sym_find(state->table, ast->i)); break;
@@ -172,6 +170,7 @@ int gen_ast(AST *ast, CGState *state, int reg) {
 
 Error cg_gen(AST *ast, char **code, SymTable *table) {
     char *reg_names[] = {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"};
+    char *op_names[]  = {"add", "sub", "mul", "div", "cmp", "lt", "lte", "gt", "gte"};
     const char *preamble = "_start:\n";
     const char *postamble = "\tret\n";
 
@@ -180,7 +179,7 @@ Error cg_gen(AST *ast, char **code, SymTable *table) {
     size_t post_len = strlen(postamble);
     
     CGState state;
-    state_init(&state, 16, reg_names, table);
+    state_init(&state, 16, reg_names, op_names, table);
 
     state_alloc_atleast(&state, pre_len + decl_len);
 

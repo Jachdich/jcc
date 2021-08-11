@@ -53,6 +53,9 @@ enum LexTokenType {
     TOK_KBREAK,
     TOK_KCONTINUE,
     TOK_KTYPEDEF,
+
+    //TEMP
+    TOK_KPRINT,
     
     TOK_EOF,
 };
@@ -89,4 +92,6 @@ char *lex_reconstruct_src(LexTokenStream *s);
 void lex_extend_tokens(LexTokenStream *s, LexTokenStream *src);
 //LexToken lex_clone_token(LexToken *t);
 const char *toktostr(LexTokenType tok);
+
+void lex_consume_assert(LexTokenStream *s, LexTokenType ty);
 #endif

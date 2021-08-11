@@ -104,6 +104,7 @@ AST *number(LexTokenStream *s, SymTable *scope) {
             fprintf(stderr, "Error: variable '%s' not defined", tok->str);
             exit(0);
         }
+        return ast_construct(NULL, 0, AST_IDENT, ident);
     } else {
         fprintf(stderr, "Error: expected int, got %s\n", toktostr(type));
         exit(0);
@@ -165,7 +166,7 @@ AST *varassign(LexTokenStream *s, SymTable *scope) {
     }
 
     if (lex_consume(s)->type != TOK_ASSIGN) {
-        fprintf(stderr, "Error: expected assignment operator or semicolon, got %s\n", toktostr(t->type));
+        fprintf(stderr, "Error: expected assignment operator, got %s\n", toktostr(t->type));
         exit(0);
     }
 
@@ -209,6 +210,21 @@ AST *mulexpr(LexTokenStream *s, SymTable *scope) {
     //    fprintf(stderr, "Error: expected * or /, got %s\n", toktostr(type));
     //    //return lhs;
     //}
+}
+
+AST *printsmt(LexTokenStream *s, SymTable *scope) {
+    lex_consume_assert(s, TOK_KPRINT);
+    AST *e = expr(s, scope);
+    //AST **child = malloc(sizeof(AST*));
+    //child[0] = e;
+    //AST *ret = ast_construct(child, 1, AST_KPRINT, 0);
+    AST *tmp = malloc(sizeof(AST));
+    tmp->children = malloc(sizeof(AST*) * 1);
+    tmp->children_n = 1;
+    tmp->type = AST_KPRINT;
+    tmp->children[0] = e;
+    lex_consume_assert(s, TOK_SEMICOLON);
+    return tmp;
 }
 
 AST *expr(LexTokenStream *s, SymTable *scope) {
@@ -277,8 +293,13 @@ ASTList ASTstatements(LexTokenStream *s, SymTable *scope) {
                 break;
             case TOK_IDENT:
                 ast_list_append(&smts, varassign(s, scope));
+                break;
             case TOK_INT:
                 ast_list_append(&smts, expr(s, scope));
+                break;
+            case TOK_KPRINT:
+                ast_list_append(&smts, printsmt(s, scope));
+                break;
             case TOK_EOF:
                 return smts;
             default:
@@ -351,6 +372,7 @@ const char *asttypetostr(ASTType ty) {
         case AST_DECL:       return "AST_DECL      ";
         case AST_DECL_VAL:   return "AST_DECL_VAL  ";
         case AST_PROG:       return "AST_PROG      ";
+        case AST_KPRINT:     return "AST_KPRINT    ";
     }
     return "(AST TOKEN NOT RECOGNISED)";
 }

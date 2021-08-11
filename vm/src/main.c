@@ -112,7 +112,7 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
     m->pc = 0;
     while ((unsigned)m->pc < ninstr) {
         struct Instruction instr = stream[m->pc];
-        printf("Pc: %d, Regs: %d %d %d %d, opcode: %s %d, %d, %d (%d)\n", m->pc, m->regs[0].i, m->regs[1].i, m->regs[2].i, m->regs[3].i, op_name(instr.opcode), instr.arg1, instr.arg2, instr.arg3, (signed)instr.arg23);
+        //printf("Pc: %d, Regs: %d %d %d %d, opcode: %s %d, %d, %d (%d)\n", m->pc, m->regs[0].i, m->regs[1].i, m->regs[2].i, m->regs[3].i, op_name(instr.opcode), instr.arg1, instr.arg2, instr.arg3, (signed)instr.arg23);
         int flg = 0;
         int reg = 0;
         switch (instr.opcode) {
@@ -157,18 +157,18 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
             }
 
             case 0x12:
-                m->pc = m->retstk[--m->pcsp] - 1;
+                m->pc = m->retstk[--m->pcsp];
                 break;
 
             case 0x13: {
                 uint32_t addr = *((uint32_t*)(stream + ++m->pc));
-                *((uint32_t*)(stream + addr)) = m->regs[instr.arg1].i;
+                *(uint32_t*)((uint8_t*)stream + addr) = m->regs[instr.arg1].i;
                 break;
             }
 
             case 0x14: {
                 uint32_t addr = *((uint32_t*)(stream + ++m->pc));
-                m->regs[instr.arg1].i = *((uint32_t*)(stream + addr));
+                m->regs[instr.arg1].i = *(uint32_t*)((uint8_t*)stream + addr);
                 break;
             }
                 

@@ -48,6 +48,7 @@ enum ASTType {
     AST_KBREAK,
     AST_KCONTINUE,
     AST_KTYPEDEF,
+    AST_KPRINT,
 
     AST_DECL,
     AST_DECL_VAL,

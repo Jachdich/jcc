@@ -20,13 +20,13 @@ void lex_append_token(LexTokenStream *s, LexToken t) {
 const char *keywords[] = {
     "int", "char", "struct", "void", "enum", "long", "short",
     "return", "if", "else", "do", "while", "for", "switch",
-    "case", "break", "continue", "typedef",
+    "case", "break", "continue", "typedef", "print",
 };
 
 const LexTokenType kword_types[] = {
     TOK_KINT, TOK_KCHAR, TOK_KSTRUCT, TOK_KVOID, TOK_KENUM, TOK_KLONG, TOK_KSHORT,
     TOK_KRETURN, TOK_KIF, TOK_KELSE, TOK_KDO, TOK_KWHILE, TOK_KFOR, TOK_KSWITCH,
-    TOK_KCASE, TOK_KBREAK, TOK_KCONTINUE, TOK_KTYPEDEF,
+    TOK_KCASE, TOK_KBREAK, TOK_KCONTINUE, TOK_KTYPEDEF, TOK_KPRINT,
 };
 
 LexTokenType get_keyword(char *s) {
@@ -156,10 +156,12 @@ void lex_init(LexTokenStream *s) {
 }
 
 LexToken *lex_consume(LexTokenStream *s) {
+    //printf("Consuming type %s\n", toktostr(s->pos->type));
     return s->pos++;
 }
 
 LexToken *lex_peek(LexTokenStream *s) {
+    //printf("Peeking at type %s\n", toktostr(s->pos->type));
     return s->pos;
 }
 /*
@@ -169,6 +171,14 @@ void lex_free_token_n(LexToken *t, unsigned long int a) {
         free(t->str);
     }
 }*/
+
+void lex_consume_assert(LexTokenStream *s, LexTokenType ty) {
+    LexToken *t = lex_consume(s);
+    if (t->type != ty) {
+        fprintf(stderr, "Syntax error: Expected '%s', but got '%s' instead.\n", toktostr(ty), toktostr(t->type));
+        exit(0);
+    }
+}
 
 void lex_free_token(LexToken *t) {
     if (t->str != NULL) {
@@ -237,6 +247,7 @@ const char *toktostr(LexTokenType tok) {
         case TOK_KBREAK:     return "TOK_KBREAK    ";
         case TOK_KCONTINUE:  return "TOK_KCONTINUE ";
         case TOK_KTYPEDEF:   return "TOK_KTYPEDEF  ";
+        case TOK_KPRINT:     return "TOK_KPRINT    ";
     }
     return NULL;
 }
@@ -330,6 +341,7 @@ char *lex_reconstruct_src(LexTokenStream *s) {
             case TOK_KBREAK:     strcat_alloc(&out, "break", &outsz, &outpos); break;
             case TOK_KCONTINUE:  strcat_alloc(&out, "continue", &outsz, &outpos); break;
             case TOK_KTYPEDEF:   strcat_alloc(&out, "typedef ", &outsz, &outpos); break;
+            case TOK_KPRINT:     strcat_alloc(&out, "print  ", &outsz, &outpos); break;
         }
     } while (t->type != TOK_EOF);
     out[outpos] = 0;

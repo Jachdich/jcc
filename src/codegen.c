@@ -22,6 +22,10 @@ struct CGState {
 typedef struct CGState CGState;
 
 void state_alloc_atleast(CGState *s, size_t bytes) {
+    //sanity check
+    if (bytes <= 0) {
+        fprintf(stderr, "WARNING: state_alloc_atleast() was called with bytes <= 0. This is almost certainly a bug\n");
+    }
     //if already enough bytes
     if (s->code_capacity - s->code_len > bytes) {
         return;
@@ -94,7 +98,7 @@ int cgdiv(int rega, int regb, CGState *state) {
     return rega;
 }
 
-int cgload(int val, CGState *state) {
+int cgloadint(int val, CGState *state) {
     int reg = reg_alloc(state);
     state_alloc_atleast(state, 11 + REGSTRLEN + MAXINTSTRLEN);
     state->code_len += sprintf(state->code + state->code_len, "\tmovl\t%d -> %s\n", val, state->reg_names[reg]);
@@ -111,8 +115,16 @@ void cgprintint(CGState *state, int reg) {
 //}
 
 void cgstoreglob(CGState *state, int reg, char *ident) {
-    state_alloc_atleast(state, 0);
+    state_alloc_atleast(state, 12 + REGSTRLEN + MAXINTSTRLEN);
     state->code_len += sprintf(state->code + state->code_len, "\tmovra\t%s -> %s\n", state->reg_names[reg], ident);
+    reg_free(state, reg);
+}
+
+int cgloadglob(CGState *state, char *ident) {
+    int reg = reg_alloc(state);
+    state_alloc_atleast(state, 12 + REGSTRLEN + MAXINTSTRLEN);
+    state->code_len += sprintf(state->code + state->code_len, "\tmovar\t%s -> %s\n", ident, state->reg_names[reg]);
+    return reg;
 }
 
 char *sym_find(SymTable *table, size_t ident) {
@@ -141,9 +153,11 @@ int gen_ast(AST *ast, CGState *state, int reg) {
         case AST_SUB:    res = cgsub(ch_regs[0], ch_regs[1], state); break;
         case AST_MUL:    res = cgmul(ch_regs[0], ch_regs[1], state); break;
         case AST_DIV:    res = cgdiv(ch_regs[0], ch_regs[1], state); break;
-        case AST_INT_LIT:res = cgload(ast->i, state); break;
+        case AST_INT_LIT:res = cgloadint(ast->i, state); break;
+        case AST_IDENT:  res = cgloadglob(state, sym_find(state->table, ast->i)); break;
         case AST_LVIDENT:cgstoreglob(state, reg, sym_find(state->table, ast->i)); break;
         case AST_ASSIGN: res = ch_regs[0]; break;
+        case AST_KPRINT: cgprintint(state, ch_regs[0]); break;
         default:
             fprintf(stderr, "Error: unrecognised token '%s'\n", asttypetostr(ast->type));
             exit(0);

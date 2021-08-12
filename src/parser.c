@@ -190,7 +190,6 @@ AST *mulexpr(LexTokenStream *s, SymTable *scope) {
     while (type == TOK_MUL || type == TOK_DIV) {
         LexToken *oper = lex_consume(s);
         AST *rhs = number(s, scope);
-        printf("Mulexpr reading rhs %lu\n", rhs->i);
         AST **children = malloc(sizeof(AST*) * 2);
         children[0] = lhs;
         children[1] = rhs;
@@ -205,11 +204,9 @@ AST *mulexpr(LexTokenStream *s, SymTable *scope) {
 AST *addexpr(LexTokenStream *s, SymTable *scope) {
     AST *lhs = mulexpr(s, scope);
     LexTokenType type = lex_peek(s)->type;
-    printf("addexpr: %s\n", toktostr(type));
     while (type == TOK_ADD || type == TOK_SUB) {
         LexToken *oper = lex_consume(s);
         AST *rhs = mulexpr(s, scope);
-        printf("Addexpr reading rhs %lu\n", rhs->i);
         AST **children = malloc(sizeof(AST*) * 2);
         children[0] = lhs;
         children[1] = rhs;
@@ -223,10 +220,8 @@ AST *expr(LexTokenStream *s, SymTable *scope) {
     AST *lhs = addexpr(s, scope);
     LexTokenType type = lex_peek(s)->type;
     while (type == TOK_COMPARE || type == TOK_GT || type == TOK_GTE || type == TOK_LT || type == TOK_LTE) {
-        printf("expr: %s\n", toktostr(type));
         LexToken *oper = lex_consume(s);
         AST *rhs = addexpr(s, scope);
-        printf("Expr reading rhs %lu\n", rhs->i);
         AST **children = malloc(sizeof(AST*) * 2);
         children[0] = lhs;
         children[1] = rhs;
@@ -257,35 +252,76 @@ void ast_list_init(ASTList *l) {
     l->cap = 64;
     l->pos = 0;
 }
+AST *statement(LexTokenStream *s, SymTable *scope);
+
+AST *compoundsmt(LexTokenStream *s, SymTable *scope) {
+    lex_consume_assert(s, TOK_OBRACE);
+    LexToken *t;
+    ASTList lst;
+    ast_list_init(&lst);
+    
+    while ((t = lex_peek(s))->type != TOK_CBRACE) {
+        AST *a = statement(s, scope);
+        if (a != NULL) {
+            ast_list_append(&lst, a);
+        }
+    }
+    lex_consume_assert(s, TOK_CBRACE);
+    return ast_construct(lst.smts, lst.pos, AST_PROG, 0);
+}
+
+AST *ifsmt(LexTokenStream *s, SymTable *scope) {
+    lex_consume_assert(s, TOK_KIF);
+    lex_consume_assert(s, TOK_OPAREN);
+    AST *a = expr(s, scope);
+    lex_consume_assert(s, TOK_CPAREN);
+    AST *b = compoundsmt(s, scope);
+    AST *c = NULL;
+    if (lex_peek(s)->type == TOK_KELSE) {
+        lex_consume_assert(s, TOK_KELSE);
+        c = compoundsmt(s, scope);
+    }
+    int cn = 2;
+    if (c != NULL)
+        cn = 3;
+    
+    AST **children = malloc(sizeof(AST*) * cn);
+    children[0] = a;
+    children[1] = b;
+    if (c != NULL)
+        children[2] = c;
+    return ast_construct(children, cn, AST_KIF, 0);
+}
+
+AST *statement(LexTokenStream *s, SymTable *scope) {
+    switch (lex_peek(s)->type) {
+        case TOK_KINT:
+        case TOK_KCHAR:
+        case TOK_KSTRUCT:
+        case TOK_KVOID:
+        case TOK_KENUM:
+        case TOK_KLONG:
+        case TOK_KSHORT:
+            return vardecl(s, scope);
+        case TOK_IDENT: return varassign(s, scope);
+        case TOK_KPRINT: return printsmt(s, scope);
+        case TOK_KIF: return ifsmt(s, scope);
+        default:
+            fprintf(stderr, "Syntax error, token %s\n", toktostr(lex_peek(s)->type));
+            exit(0);
+    }
+}
 
 ASTList ASTstatements(LexTokenStream *s, SymTable *scope) {
     ASTList smts;
     ast_list_init(&smts);
     while (1) {
-        switch (lex_peek(s)->type) {
-            case TOK_KINT:
-            case TOK_KCHAR:
-            case TOK_KSTRUCT:
-            case TOK_KVOID:
-            case TOK_KENUM:
-            case TOK_KLONG:
-            case TOK_KSHORT:
-                AST *a = vardecl(s, scope);
-                if (a != NULL) {
-                    ast_list_append(&smts, a);
-                }
-                break;
-            case TOK_IDENT:
-                ast_list_append(&smts, varassign(s, scope));
-                break;
-            case TOK_KPRINT:
-                ast_list_append(&smts, printsmt(s, scope));
-                break;
-            case TOK_EOF:
-                return smts;
-            default:
-                fprintf(stderr, "Syntax error, token %s\n", toktostr(lex_peek(s)->type));
-                exit(0);
+        AST *a = statement(s, scope);
+        if (a != NULL) {
+            ast_list_append(&smts, a);
+        }
+        if (lex_peek(s)->type == TOK_EOF) {
+            return smts;
         }
     }
 }

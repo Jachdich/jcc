@@ -3,6 +3,7 @@
 
 struct Args {
     int status;
+    int print_bytes;
     char *ifname;
     char *ofname;
 };

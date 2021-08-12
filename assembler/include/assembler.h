@@ -4,10 +4,20 @@
 typedef struct Instr Instr;
 typedef struct Arg Arg;
 typedef struct SymTable SymTable;
+typedef enum ArgType ArgType;
+
+enum ArgType {
+    AT_NONE,
+    AT_REG,
+    AT_INT,
+    AT_COND,
+    AT_LABEL,
+};
 
 struct Arg {
     int i;
     char *s;
+    ArgType t;
 };
 
 struct Instr {

@@ -18,12 +18,14 @@ int main(int argc, char **argv) {
         printf("%02x %02x %02x %02x\n", bin_code[i], bin_code[i + 1], bin_code[i + 2], bin_code[i + 3]);
     }
 
-    FILE *fp = fopen(args.ofname, "wb");
-    if (fp == NULL) {
-        fprintf(stderr, "Error opening output file '%s'\n", args.ofname);
+    if (args.ofname != NULL) {
+        FILE *fp = fopen(args.ofname, "wb");
+        if (fp == NULL) {
+            fprintf(stderr, "Error opening output file '%s'\n", args.ofname);
+        }
+        fwrite(bin_code, 1, codesize, fp);
+        fclose(fp);
     }
-    fwrite(bin_code, 1, codesize, fp);
-    fclose(fp);
     
     free(bin_code);
     reader_free(&r);

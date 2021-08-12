@@ -1,4 +1,5 @@
 _start:
-    movi 69 -> r0
-    call print
+    movi 3 -> r0
+    jcr nc, 0
+    jcr z, 1
     halt

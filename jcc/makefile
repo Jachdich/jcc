@@ -1,0 +1,26 @@
+SOURCES := $(shell find src -type f -name *.c)
+HEADERS := $(shell find include -type f -name *.h)
+OBJECTS := $(patsubst src/%,obj/%,$(SOURCES:.c=.o))
+
+jcc: $(OBJECTS)
+	gcc $(OBJECTS) -ljas -ljobj -o $@
+
+obj/%.o: src/%.c $(HEADERS) $(ASMHEADERS)
+	@mkdir -p obj
+	gcc -c -o $@ $< -Wall -g -Iinclude -I../assembler/include
+
+debug: jcc
+	gdb jcc
+
+run: jcc
+	./jcc test.jc
+
+clean:
+	rm obj/*.o
+	rm jcc
+
+install: jcc
+	cp jcc /usr/local/bin
+
+.PHONY: clean
+.PHONY: install

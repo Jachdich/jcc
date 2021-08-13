@@ -4,7 +4,7 @@ OBJECTS := $(patsubst src/%,obj/%,$(SOURCES:.c=.o))
 EXENAME := jobjdump
 
 $(EXENAME): $(OBJECTS)
-	gcc $(OBJECTS) -o $@
+	gcc $(OBJECTS) -ljobj -o $@
 
 obj/%.o: src/%.c $(HEADERS)
 	@mkdir -p obj
@@ -20,5 +20,8 @@ run: $(EXENAME)
 clean:
 	rm obj/*.o
 	rm $(EXENAME)
+
+install: $(EXENAME)
+	cp $(EXENAME) /usr/local/bin
 
 .PHONY: clean

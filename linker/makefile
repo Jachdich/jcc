@@ -4,7 +4,7 @@ OBJECTS := $(patsubst src/%,obj/%,$(SOURCES:.c=.o))
 EXENAME := jld
 
 $(EXENAME): $(OBJECTS)
-	gcc $(OBJECTS) -L../objtools -lobj -o $@
+	gcc $(OBJECTS) -lobj -o $@
 
 libjld.a: $(OBJECTS)
 	ar -rc $@ $(filter-out obj/args.o obj/main.o,$(OBJECTS))
@@ -25,4 +25,16 @@ clean:
 	rm obj/*.o
 	rm $(EXENAME)
 
+libinclude: $(HEADERS)
+	mkdir -p libinclude
+	rm -rf libinclude/*
+	cp include/linker.h libinclude/jld.h
+
+install: $(EXENAME) libjld.a libinclude
+	cp $(EXENAME) /usr/local/bin
+	cp libjld.a /usr/local/lib
+	rm -rf /usr/local/include/jld
+	cp -r libinclude /usr/local/include/jld
+	
 .PHONY: clean
+.PHONY: install

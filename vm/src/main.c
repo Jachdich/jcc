@@ -17,7 +17,8 @@ enum {
 };
 
 struct Machine {
-    struct Reg regs[16];
+    //struct Reg regs[16];
+    int32_t regs[16];
     int flags[4];
     int retstk[256];
     int pcsp;
@@ -87,8 +88,8 @@ const char *op_name(uint8_t op) {
     switch (op) {
         case 0x00: return "mov";
         case 0x01: return "movi";
-        case 0x02: return "jcr";
-        case 0x03: return "jr";
+        case 0x02: return "jc";
+        case 0x03: return "jp";
         case 0x04: return "out";
         case 0x05: return "add";
         case 0x06: return "addi";
@@ -104,55 +105,53 @@ const char *op_name(uint8_t op) {
         case 0x10: return "halt";
         case 0x11: return "call";
         case 0x12: return "ret";
-        return "Invalid opcode";
     }
+    return "Invalid opcode";
 }
 
 void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
     m->pc = 0;
     while ((unsigned)m->pc < ninstr) {
-        struct Instruction instr = stream[m->pc];
+        struct Instruction instr = stream[m->pc++];
         //printf("Pc: %d, Regs: %d %d %d %d, opcode: %s %d, %d, %d (%d)\n", m->pc, m->regs[0].i, m->regs[1].i, m->regs[2].i, m->regs[3].i, op_name(instr.opcode), instr.arg1, instr.arg2, instr.arg3, (signed)instr.arg23);
-        int flg = 0;
-        int reg = 0;
         switch (instr.opcode) {
             case 0x00:
                 m->regs[instr.arg2] = m->regs[instr.arg1];
                 break;
             case 0x01:
-                m->regs[instr.arg1].i = instr.arg23;
+                m->regs[instr.arg1] = instr.arg23;
                 break;
             case 0x02:
-                if (m->flags[instr.arg1]) {
-                    m->pc += ((signed)instr.arg23) / 4 - 1;
+                if (/*m->flags[instr.arg1]*/ m->regs[instr.arg2] == 0) {
+                    m->pc = *((int32_t*)(stream + m->pc)) / 4 ;
                 }
                 break;
             case 0x03:
-                m->pc += (signed)instr.arg23 / 4 - 1;
+                m->pc = *((int32_t*)(stream + m->pc)) / 4;
                 break;
             case 0x04:
-                printf("%d\n", m->regs[instr.arg1].i);
+                printf("%d\n", m->regs[instr.arg1]);
                 break;
-            case 0x05: m->regs[instr.arg3].i = m->regs[instr.arg1].i + m->regs[instr.arg2].i; flg = 1; reg = m->regs[instr.arg3].i; break;
-            case 0x06: m->regs[instr.arg1].i = m->regs[instr.arg1].i + instr.arg23;           flg = 1; reg = m->regs[instr.arg1].i; break;
-            case 0x07: m->regs[instr.arg3].i = m->regs[instr.arg1].i - m->regs[instr.arg2].i; flg = 1; reg = m->regs[instr.arg3].i; break;
-            case 0x08: m->regs[instr.arg1].i = m->regs[instr.arg1].i - instr.arg23;           flg = 1; reg = m->regs[instr.arg1].i; break;
-            case 0x09: m->regs[instr.arg3].i = m->regs[instr.arg1].i * m->regs[instr.arg2].i; flg = 1; reg = m->regs[instr.arg3].i; break;
-            case 0x0a: m->regs[instr.arg1].i = m->regs[instr.arg1].i * instr.arg23;           flg = 1; reg = m->regs[instr.arg1].i; break;
-            case 0x0b: m->regs[instr.arg3].i = m->regs[instr.arg1].i / m->regs[instr.arg2].i; flg = 1; reg = m->regs[instr.arg3].i; break;
-            case 0x0c: m->regs[instr.arg1].i = m->regs[instr.arg1].i / instr.arg23;           flg = 1; reg = m->regs[instr.arg1].i; break;
-            case 0x0d: m->regs[instr.arg3].i = m->regs[instr.arg1].i % m->regs[instr.arg2].i; flg = 1; reg = m->regs[instr.arg3].i; break;
-            case 0x0e: m->regs[instr.arg1].i = m->regs[instr.arg1].i % instr.arg23;           flg = 1; reg = m->regs[instr.arg1].i; break;
+            case 0x05: m->regs[instr.arg3] = m->regs[instr.arg1] + m->regs[instr.arg2]; break;
+            case 0x06: m->regs[instr.arg1] = m->regs[instr.arg1] + instr.arg23;         break;
+            case 0x07: m->regs[instr.arg3] = m->regs[instr.arg1] - m->regs[instr.arg2]; break;
+            case 0x08: m->regs[instr.arg1] = m->regs[instr.arg1] - instr.arg23;         break;
+            case 0x09: m->regs[instr.arg3] = m->regs[instr.arg1] * m->regs[instr.arg2]; break;
+            case 0x0a: m->regs[instr.arg1] = m->regs[instr.arg1] * instr.arg23;         break;
+            case 0x0b: m->regs[instr.arg3] = m->regs[instr.arg1] / m->regs[instr.arg2]; break;
+            case 0x0c: m->regs[instr.arg1] = m->regs[instr.arg1] / instr.arg23;         break;
+            case 0x0d: m->regs[instr.arg3] = m->regs[instr.arg1] % m->regs[instr.arg2]; break;
+            case 0x0e: m->regs[instr.arg1] = m->regs[instr.arg1] % instr.arg23;         break;
 
             case 0x0f:
-                m->regs[instr.arg1].i = *((uint32_t*)(stream + ++m->pc));
+                m->regs[instr.arg1] = *((uint32_t*)(stream + m->pc++));
                 break;
             case 0x10:
                 return;
             case 0x11: {
-                uint32_t addr = *((uint32_t*)(stream + ++m->pc));
+                uint32_t addr = *((uint32_t*)(stream + m->pc++));
                 m->retstk[m->pcsp++] = m->pc;
-                m->pc = addr / 4 - 1;
+                m->pc = addr / 4;
                 break;
             }
 
@@ -161,27 +160,18 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
                 break;
 
             case 0x13: {
-                uint32_t addr = *((uint32_t*)(stream + ++m->pc));
-                *(uint32_t*)((uint8_t*)stream + addr) = m->regs[instr.arg1].i;
+                uint32_t addr = *((uint32_t*)(stream + m->pc++));
+                *(uint32_t*)((uint8_t*)stream + addr) = m->regs[instr.arg1];
                 break;
             }
 
             case 0x14: {
-                uint32_t addr = *((uint32_t*)(stream + ++m->pc));
-                m->regs[instr.arg1].i = *(uint32_t*)((uint8_t*)stream + addr);
+                uint32_t addr = *((uint32_t*)(stream + m->pc++));
+                m->regs[instr.arg1] = *(uint32_t*)((uint8_t*)stream + addr);
                 break;
             }
                 
         }
-        if (flg) {
-            if (reg == 0) {
-                m->flags[FLAG_ZERO] = 1;
-            } else {
-                m->flags[FLAG_ZERO] = 0;
-            }
-            m->flags[FLAG_NZERO] = !m->flags[FLAG_ZERO];
-        }
-        m->pc++;
     }
 }
 

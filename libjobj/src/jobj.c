@@ -1,4 +1,4 @@
-#include "../include/obj.h"
+#include "../include/jobj.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -36,7 +36,7 @@ uint8_t *write_table(uint8_t *data, char **syms, uint32_t *ids, uint32_t num) {
 }
 
 
-size_t process_file(uint8_t *data, size_t fsize, uint8_t **code, struct LinkTable *table) {
+size_t jobj_process_file(uint8_t *data, size_t fsize, uint8_t **code, struct LinkTable *table) {
     uint8_t *orig_data = data;
     struct ObjHeader header;
     memcpy(&header, data, sizeof(header));

@@ -30,7 +30,7 @@ struct ObjHeader {
 void table_merge(struct LinkTable *a, struct LinkTable *b);
 void table_init(struct LinkTable *t);
 void table_free(struct LinkTable *table);
-size_t process_file(uint8_t *data, size_t fsize, uint8_t **code, struct LinkTable *table);
+size_t jobj_process_file(uint8_t *data, size_t fsize, uint8_t **code, struct LinkTable *table);
 uint8_t *write_table(uint8_t *data, char **syms, uint32_t *ids, uint32_t num);
 uint8_t  *read_table(uint8_t *data, char **syms, uint32_t *ids, uint32_t num);
 

@@ -21,4 +21,7 @@ clean:
 	rm obj/*.o
 	rm $(EXENAME)
 
+install: $(EXENAME)
+	cp $(EXENAME) /usr/local/bin
+
 .PHONY: clean

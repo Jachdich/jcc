@@ -34,7 +34,7 @@ int is_reg(char *str) {
 }
 
 int is_twobyte(uint8_t opcode) {
-    return opcode == 0x0f || opcode == 0x11 || opcode == 0x13 || opcode == 0x14;
+    return opcode == 0x02 || opcode == 0x03 || opcode == 0x0f || opcode == 0x11 || opcode == 0x13 || opcode == 0x14;
 }
 
 uint8_t get_opcode(char **str) {
@@ -47,8 +47,8 @@ uint8_t get_opcode(char **str) {
     //printf("%s\n", init);
     if (strcmp(init, "mov")  == 0) return 0x00;
     if (strcmp(init, "movi") == 0) return 0x01;
-    if (strcmp(init, "jcr")  == 0) return 0x02;
-    if (strcmp(init, "jr")   == 0) return 0x03;
+    if (strcmp(init, "jc")   == 0) return 0x02;
+    if (strcmp(init, "jp")   == 0) return 0x03;
     if (strcmp(init, "out")  == 0) return 0x04;
     if (strcmp(init, "add")  == 0) return 0x05;
     if (strcmp(init, "addi") == 0) return 0x06;
@@ -85,6 +85,7 @@ char *read_label(char **str) {
     }
 }
 
+//compare two strings until one of them encounters a "seperator" character
 int strsepcmp(char *a, char *b) {
     while (!issep(*a) && !issep(*b) && *b != 0 && *a != 0) {
         if (*a != *b) {
@@ -217,7 +218,7 @@ int args_match(uint8_t opcode, Arg *args, int linenum, char *line) {
     switch (opcode) {
         case 0x00: return args_assert(args, AT_REG,   AT_REG,   AT_NONE, linenum, line);
         case 0x01: return args_assert(args, AT_INT,   AT_REG,   AT_NONE, linenum, line);
-        case 0x02: return args_assert(args, AT_COND,  AT_LABEL, AT_NONE, linenum, line);
+        case 0x02: return args_assert(args, AT_COND,  AT_LABEL, AT_REG,  linenum, line);
         case 0x03: return args_assert(args, AT_LABEL, AT_NONE,  AT_NONE, linenum, line);
         case 0x04: return args_assert(args, AT_REG,   AT_NONE,  AT_NONE, linenum, line);
         case 0x05: return args_assert(args, AT_REG,   AT_REG,   AT_REG,  linenum, line);
@@ -271,7 +272,7 @@ size_t gen_instrs(Reader *r, Instr **instrs_ptr) {
             }
             opcode = val & 0xFF;
             args = malloc(sizeof(Arg) * 3);
-            args[0] = (Arg){(val >> 8) & 0xFF, NULL, AT_INT};
+            args[0] = (Arg){(val  >> 8) & 0xFF, NULL, AT_INT};
             args[1] = (Arg){(val >> 16) & 0xFF, NULL, AT_INT};
             args[2] = (Arg){(val >> 24) & 0xFF, NULL, AT_INT};
             is_lit = 1;
@@ -411,8 +412,8 @@ size_t reorder_args(uint8_t **code_ptr, Instr *instrs, size_t num_instrs, size_t
             switch (in.opcode) {
                 case 0x00: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = 0;     break;
                 case 0x01: code[pos++] = a[1].i; writeshort(code, &pos, a[0].i);            break;
-                case 0x02: code[pos++] = a[0].i; writeshort(code, &pos, a[1].i);            break;
-                case 0x03: code[pos++] = 0;      writeshort(code, &pos, a[0].i);            break;
+                case 0x02: code[pos++] = a[0].i; code[pos++] = a[2].i; code[pos++] = 0; writeqword(code, &pos, a[1].i); break;
+                case 0x03: code[pos++] = 0; code[pos++] = 0; code[pos++] = 0; writeqword(code, &pos, a[0].i); break;
                 case 0x04: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0;          break;
                 
                 case 0x05: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;

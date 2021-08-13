@@ -1,14 +1,10 @@
 SOURCES := $(shell find src -type f -name *.c)
 HEADERS := $(shell find include -type f -name *.h)
 OBJECTS := $(patsubst src/%,obj/%,$(SOURCES:.c=.o))
-EXENAME := jld
+EXENAME := jobjdump
 
 $(EXENAME): $(OBJECTS)
-	gcc $(OBJECTS) -L../objtools -lobj -o $@
-
-libjld.a: $(OBJECTS)
-	ar -rc $@ $(filter-out obj/args.o obj/main.o,$(OBJECTS))
-	ranlib $@
+	gcc $(OBJECTS) -o $@
 
 obj/%.o: src/%.c $(HEADERS)
 	@mkdir -p obj

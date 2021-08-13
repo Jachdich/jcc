@@ -13,9 +13,11 @@ int main(int argc, char **argv) {
 
     uint8_t *bin_code;
     size_t codesize = assemble(&r, &bin_code);
-    
-    for (size_t i = 0; i < codesize; i += 4) {
-        printf("%02x %02x %02x %02x\n", bin_code[i], bin_code[i + 1], bin_code[i + 2], bin_code[i + 3]);
+
+    if (args.print_bytes) {
+        for (size_t i = 0; i < codesize; i += 4) {
+            printf("%02x %02x %02x %02x\n", bin_code[i], bin_code[i + 1], bin_code[i + 2], bin_code[i + 3]);
+        }
     }
 
     if (args.ofname != NULL) {

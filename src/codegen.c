@@ -71,17 +71,20 @@ void state_free(CGState *s) {
 }
 
 int reg_alloc(CGState *state) {
-    for (size_t i = 0; i < 4; i++) {
+    for (size_t i = 0; i < state->num_regs; i++) {
         if (state->regs_free[i] == 0) {
             state->regs_free[i] = 1;
+            printf("Allocating %lu\n", i);
             return i;
         }
     }
+    printf("Internal error: Out of registers\n");
     return -1;
 }
 
 void reg_free(CGState *state, int reg) {
     state->regs_free[reg] = 0;
+    printf("Freeing %d\n", reg);
 }
 
 int cgmathop(int rega, int regb, int op, CGState *state) {
@@ -101,11 +104,8 @@ int cgloadint(int val, CGState *state) {
 void cgprintint(CGState *state, int reg) {
     state_alloc_atleast(state, 6 + REGSTRLEN);
     state->code_len += sprintf(state->code + state->code_len, "\tout\t%s\n", state->reg_names[reg]);
+    reg_free(state, reg);
 }
-
-//void cgdefglob(CGState *state) {
-//    state_alloc_atleast()
-//}
 
 void cgstoreglob(CGState *state, int reg, char *ident) {
     state_alloc_atleast(state, 12 + REGSTRLEN + MAXINTSTRLEN);
@@ -139,7 +139,7 @@ int gen_ast(AST *ast, CGState *state, int reg) {
     }
 
     int res = -1;
-
+    printf("TYPE: %s\n", asttypetostr(ast->type));
     switch (ast->type) {
         case AST_PROG:   break; //already calculated all the children so leave
         case AST_ADD:    res = cgmathop(ch_regs[0], ch_regs[1], CG_ADD, state); break;

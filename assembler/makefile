@@ -4,7 +4,7 @@ OBJECTS := $(patsubst src/%,obj/%,$(SOURCES:.c=.o))
 EXENAME := jas
 
 $(EXENAME): $(OBJECTS)
-	gcc $(OBJECTS) -o $@
+	gcc $(OBJECTS) -L../objtools -lobj -o $@
 
 libjas.a: $(OBJECTS)
 	ar -rc $@ $(filter-out obj/args.o obj/main.o,$(OBJECTS))

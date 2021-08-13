@@ -251,7 +251,7 @@ size_t gen_instrs(Reader *r, Instr **instrs_ptr) {
     char *next_lab = NULL;
     while (reader_bytes_left(r) > 0) {
         char *line = reader_read_line(r);
-        char *line_init = malloc(strlen(line));
+        char *line_init = malloc(strlen(line) + 1);
         strcpy(line_init, line);
         while (iswhite(*line) && *line != 0) line++;
         
@@ -307,7 +307,7 @@ size_t gen_instrs(Reader *r, Instr **instrs_ptr) {
     return len;
 }
 
-size_t resolve_symbols(Instr *instrs, size_t num_instrs, SymTable *table) {
+size_t resolve_symbols(Instr *instrs, size_t num_instrs, struct LinkTable *table) {
     table->res_syms = malloc(sizeof(char*) * 64);
     table->unres_syms = malloc(sizeof(char*) * 64);
     table->locs = malloc(sizeof(size_t) * 64);
@@ -464,39 +464,10 @@ to_replace:
     num * 4: offsets
 */
 
-struct ObjHeader {
-    char magic[4];
-    uint32_t unres_sym_len;
-    uint32_t res_sym_len;
-};
-
-uint8_t *write_table(uint8_t *data, char **syms, uint32_t *ids, uint32_t num) {
-    for (size_t i = 0; i < num; i++) {
-        uint32_t symlen = strlen(syms[i]);
-        char *sym = syms[i];
-        uint32_t id = ids[i];
-        memcpy(data, &symlen, 4);
-        data += 4;
-        memcpy(data, sym, symlen);
-        data += symlen;
-        memcpy(data, &id, 4);
-        data += 4;
-    }
-    return data;
-}
-
-void table_free(SymTable *table) {
-    free(table->res_syms);
-    free(table->unres_syms);
-    free(table->locs);
-    free(table->ids);
-    free(table->phoff);
-}
-
 size_t assemble(Reader *src, uint8_t **out) {
     Instr *instrs;
     size_t num_instrs = gen_instrs(src, &instrs);
-    SymTable table;
+    struct LinkTable table;
     size_t num_words = resolve_symbols(instrs, num_instrs, &table) / 4;
     uint8_t *assembled_instructions;
     size_t codesize = reorder_args(&assembled_instructions, instrs, num_instrs, num_words);
@@ -531,9 +502,10 @@ size_t assemble(Reader *src, uint8_t **out) {
     memcpy(data, table.phoff, table.phoff_pos * sizeof(uint32_t));
     data += table.phoff_pos * sizeof(uint32_t);
     memcpy(data, assembled_instructions, codesize);
+    data += codesize;
 
     table_free(&table);
     
     free(instrs);
-    return sizeof(header) + codesize + unres_size + res_size;
+    return data - *out;
 }

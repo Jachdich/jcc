@@ -279,7 +279,11 @@ AST *ifsmt(LexTokenStream *s, SymTable *scope) {
     AST *c = NULL;
     if (lex_peek(s)->type == TOK_KELSE) {
         lex_consume_assert(s, TOK_KELSE);
-        c = compoundsmt(s, scope);
+        if (lex_peek(s)->type == TOK_KIF) {
+            c = ifsmt(s, scope);
+        } else {
+            c = compoundsmt(s, scope);
+        }
     }
     int cn = 2;
     if (c != NULL)

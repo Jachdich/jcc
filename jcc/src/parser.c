@@ -128,7 +128,7 @@ AST *vardecl(LexTokenStream *s, SymTable *scope) {
     case TOK_KVOID:
     case TOK_KENUM:
     case TOK_KLONG:
-    case TOK_KSHORT:
+    case TOK_KSHORT: {
         LexToken *t = lex_consume_assert(s, TOK_IDENT);
         size_t ident = sym_new(scope, t->str, asttovar(lextoast(type)));
         AST *child1 = ast_construct(NULL, 0, AST_LVIDENT, ident);
@@ -151,6 +151,7 @@ AST *vardecl(LexTokenStream *s, SymTable *scope) {
         return out;
 
         break;
+    }
     default:
         fprintf(stderr, "Error: expected type identifier, got %s\n", toktostr(type));
         exit(0);

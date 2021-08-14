@@ -39,33 +39,36 @@ int is_twobyte(uint8_t opcode) {
 
 uint8_t get_opcode(char **str) {
     char *init = *str;
-    while (**str != ' ' && **str != '\t' && **str != 0) {
+    size_t sz = 0;
+    while (!issep(**str) && **str != 0) {
         (*str)++;
+        sz++;
     }
-    **str = 0;
-    (*str)++;
+    //**str = 0;
+    //(*str)++;
+    while (issep(**str)) (*str)++;
     //printf("%s\n", init);
-    if (strcmp(init, "mov")  == 0) return 0x00;
-    if (strcmp(init, "movi") == 0) return 0x01;
-    if (strcmp(init, "jc")   == 0) return 0x02;
-    if (strcmp(init, "jp")   == 0) return 0x03;
-    if (strcmp(init, "out")  == 0) return 0x04;
-    if (strcmp(init, "add")  == 0) return 0x05;
-    if (strcmp(init, "addi") == 0) return 0x06;
-    if (strcmp(init, "sub")  == 0) return 0x07;
-    if (strcmp(init, "subi") == 0) return 0x08;
-    if (strcmp(init, "mul")  == 0) return 0x09;
-    if (strcmp(init, "muli") == 0) return 0x0a;
-    if (strcmp(init, "div")  == 0) return 0x0b;
-    if (strcmp(init, "divi") == 0) return 0x0c;
-    if (strcmp(init, "mod")  == 0) return 0x0d;
-    if (strcmp(init, "modi") == 0) return 0x0e;
-    if (strcmp(init, "movl") == 0) return 0x0f;
-    if (strcmp(init, "halt") == 0) return 0x10;
-    if (strcmp(init, "call") == 0) return 0x11;
-    if (strcmp(init, "ret")  == 0) return 0x12;
-    if (strcmp(init, "movra") == 0) return 0x13;
-    if (strcmp(init, "movar") == 0) return 0x14;
+    if (strncmp(init, "mov", sz)  == 0) return 0x00;
+    if (strncmp(init, "movi", sz) == 0) return 0x01;
+    if (strncmp(init, "jc", sz)   == 0) return 0x02;
+    if (strncmp(init, "jp", sz)   == 0) return 0x03;
+    if (strncmp(init, "out", sz)  == 0) return 0x04;
+    if (strncmp(init, "add", sz)  == 0) return 0x05;
+    if (strncmp(init, "addi", sz) == 0) return 0x06;
+    if (strncmp(init, "sub", sz)  == 0) return 0x07;
+    if (strncmp(init, "subi", sz) == 0) return 0x08;
+    if (strncmp(init, "mul", sz)  == 0) return 0x09;
+    if (strncmp(init, "muli", sz) == 0) return 0x0a;
+    if (strncmp(init, "div", sz)  == 0) return 0x0b;
+    if (strncmp(init, "divi", sz) == 0) return 0x0c;
+    if (strncmp(init, "mod", sz)  == 0) return 0x0d;
+    if (strncmp(init, "modi", sz) == 0) return 0x0e;
+    if (strncmp(init, "movl", sz) == 0) return 0x0f;
+    if (strncmp(init, "halt", sz) == 0) return 0x10;
+    if (strncmp(init, "call", sz) == 0) return 0x11;
+    if (strncmp(init, "ret", sz)  == 0) return 0x12;
+    if (strncmp(init, "movra", sz) == 0) return 0x13;
+    if (strncmp(init, "movar", sz) == 0) return 0x14;
     printf("Unknown opcode %s\n", init);
     return -1;
 }
@@ -117,8 +120,9 @@ Arg *read_args(char *str) {
     posargs[0] = (Arg){0, NULL, AT_NONE};
     posargs[1] = (Arg){0, NULL, AT_NONE};
     posargs[2] = (Arg){0, NULL, AT_NONE};
+    if (*str == 0) { return posargs; }
     for (int i = 0; i < 3; i++) {
-    
+        //printf("It's a str: %s\n", str);
         if (strsepcmp(str, "z") == 0) {
             str += 1;
             posargs[i].i = 1;
@@ -153,7 +157,7 @@ Arg *read_args(char *str) {
             while (!issep(*str) && *str != 0) { str++; sz++; }
             if (sz != 0) {
                 char *ident = malloc(sz + 1);
-                strcpy(ident, str - sz);
+                strncpy(ident, str - sz, sz);
                 ident[sz] = 0;
                 posargs[i].s = ident;
                 posargs[i].t = AT_LABEL;

@@ -10,7 +10,6 @@ enum ArgType {
     AT_NONE,
     AT_REG,
     AT_INT,
-    AT_COND,
     AT_LABEL,
 };
 
@@ -23,7 +22,8 @@ struct Arg {
 struct Instr {
     uint8_t opcode;
     Arg *args;
-    char *label_at;
+    char **labels_at;
+    int num_labels_at;
     int is_lit;
 };
 

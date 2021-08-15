@@ -1,0 +1,8 @@
+int a = 18;
+if (a < 14) {
+    print 1;
+} else if (a < 18) {
+    print 2;
+} else {
+    print 3;
+}

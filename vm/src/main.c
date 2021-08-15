@@ -86,25 +86,33 @@ f movl {next qword} -> r{arg1}
 
 const char *op_name(uint8_t op) {
     switch (op) {
-        case 0x00: return "mov";
-        case 0x01: return "movi";
-        case 0x02: return "jc";
-        case 0x03: return "jp";
-        case 0x04: return "out";
-        case 0x05: return "add";
-        case 0x06: return "addi";
-        case 0x07: return "sub";
-        case 0x08: return "subi";
-        case 0x09: return "mul";
-        case 0x0a: return "muli";
-        case 0x0b: return "div";
-        case 0x0c: return "divi";
-        case 0x0d: return "mod";
-        case 0x0e: return "modi";
-        case 0x0f: return "movl";
-        case 0x10: return "halt";
-        case 0x11: return "call";
-        case 0x12: return "ret";
+        case 0x00: return "mov  ";
+        case 0x01: return "movi ";
+        case 0x02: return "jz   ";
+        case 0x03: return "jp   ";
+        case 0x04: return "out  ";
+        case 0x05: return "add  ";
+        case 0x06: return "addi ";
+        case 0x07: return "sub  ";
+        case 0x08: return "subi ";
+        case 0x09: return "mul  ";
+        case 0x0a: return "muli ";
+        case 0x0b: return "div  ";
+        case 0x0c: return "divi ";
+        case 0x0d: return "mod  ";
+        case 0x0e: return "modi ";
+        case 0x0f: return "movl ";
+        case 0x10: return "halt ";
+        case 0x11: return "call ";
+        case 0x12: return "ret  ";
+        case 0x13: return "movra";
+        case 0x14: return "movar";
+        case 0x15: return "jnz  ";
+        case 0x16: return "cmp  ";
+        case 0x17: return "lt   ";
+        case 0x18: return "lte  ";
+        case 0x19: return "gt   ";
+        case 0x1A: return "gte  ";
     }
     return "Invalid opcode";
 }
@@ -113,7 +121,10 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
     m->pc = 0;
     while ((unsigned)m->pc < ninstr) {
         struct Instruction instr = stream[m->pc++];
-        //printf("Pc: %d, Regs: %d %d %d %d, opcode: %s %d, %d, %d (%d)\n", m->pc, m->regs[0].i, m->regs[1].i, m->regs[2].i, m->regs[3].i, op_name(instr.opcode), instr.arg1, instr.arg2, instr.arg3, (signed)instr.arg23);
+        printf("Pc: %02x, Regs: %02x %02x %02x %02x, opcode: %s %02x, %02x, %02x (%02x) (next qword %04x instr %04x)\n",
+                m->pc, m->regs[0], m->regs[1], m->regs[2], m->regs[3],
+                op_name(instr.opcode), instr.arg1, instr.arg2, instr.arg3,
+                (signed)instr.arg23, *((int32_t*)(stream + m->pc)), *((int32_t*)(stream + m->pc)) / 4);
         switch (instr.opcode) {
             case 0x00:
                 m->regs[instr.arg2] = m->regs[instr.arg1];
@@ -122,8 +133,17 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
                 m->regs[instr.arg1] = instr.arg23;
                 break;
             case 0x02:
-                if (/*m->flags[instr.arg1]*/ m->regs[instr.arg2] == 0) {
+                if (m->regs[instr.arg1] == 0) {
                     m->pc = *((int32_t*)(stream + m->pc)) / 4 ;
+                } else {
+                    m->pc++;
+                }
+                break;
+            case 0x15:
+                if (m->regs[instr.arg1] != 0) {
+                    m->pc = *((int32_t*)(stream + m->pc)) / 4 ;
+                } else {
+                    m->pc++;
                 }
                 break;
             case 0x03:
@@ -170,7 +190,14 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
                 m->regs[instr.arg1] = *(uint32_t*)((uint8_t*)stream + addr);
                 break;
             }
-                
+            case 0x16: m->regs[instr.arg3] = m->regs[instr.arg1] == m->regs[instr.arg2]; break;
+            case 0x17: m->regs[instr.arg3] = m->regs[instr.arg1] <  m->regs[instr.arg2]; break;
+            case 0x18: m->regs[instr.arg3] = m->regs[instr.arg1] <= m->regs[instr.arg2]; break;
+            case 0x19: m->regs[instr.arg3] = m->regs[instr.arg1] >  m->regs[instr.arg2]; break;
+            case 0x1A: m->regs[instr.arg3] = m->regs[instr.arg1] >= m->regs[instr.arg2]; break;
+            default:
+                printf("Error: unrecognised opcode %02x\n", instr.opcode);
+                exit(0);
         }
     }
 }
@@ -195,6 +222,9 @@ int main(int argc, char **argv) {
     struct Instruction *instrs = (struct Instruction *)contents;
     size_t ninstr = fsize / sizeof(struct Instruction);
     struct Machine m;
+    for (uint8_t i = 0; i < 16; i++) {
+        m.regs[i] = 0;
+    }
     run(&m, instrs, ninstr);
     return 0;
 }

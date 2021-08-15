@@ -18,6 +18,7 @@ struct CGState {
     char **reg_names;
     char **op_names;
     SymTable *table;
+    int label_ident;
 };
 
 enum {
@@ -52,6 +53,12 @@ void state_alloc_atleast(CGState *s, size_t bytes) {
     s->code_capacity = to_alloc;
 }
 
+char *state_gen_label(CGState *s) {
+    char *res = malloc(8);
+    sprintf(res, "lab_%03d", s->label_ident++);
+    return res;
+}
+
 void state_init(CGState *s, size_t num_regs, char **reg_names, char **op_names, struct SymTable *table) {
     s->regs_free = malloc(num_regs);
     s->num_regs = num_regs;
@@ -64,6 +71,7 @@ void state_init(CGState *s, size_t num_regs, char **reg_names, char **op_names, 
     s->code_capacity = 8;
     s->table = table;
     s->op_names = op_names;
+    s->label_ident = 0;
 }
 
 void state_free(CGState *s) {
@@ -96,8 +104,17 @@ int cgmathop(int rega, int regb, int op, CGState *state) {
 
 int cgloadint(int val, CGState *state) {
     int reg = reg_alloc(state);
+
+    char op = 'l';
+    if (val < 32768) {
+        //the value is small enough to
+        //save 4 bytes by putting it into the arguments
+        //instead of a new word
+        op = 'i';
+    }
+    
     state_alloc_atleast(state, 11 + REGSTRLEN + MAXINTSTRLEN);
-    state->code_len += sprintf(state->code + state->code_len, "\tmovl\t%d -> %s\n", val, state->reg_names[reg]);
+    state->code_len += sprintf(state->code + state->code_len, "\tmov%c\t%d -> %s\n", op, val, state->reg_names[reg]);
     return reg;
 }
 
@@ -129,7 +146,34 @@ char *sym_find(SymTable *table, size_t ident) {
     return NULL;
 }
 
+int gen_ast(AST *ast, CGState *state, int reg);
+
+int cgif(CGState *state, AST *ast) {
+    int cond = gen_ast(ast->children[0], state, -1);
+    char *false_label = state_gen_label(state);
+    char *end_label = state_gen_label(state);
+
+    state_alloc_atleast(state, 8 + strlen(false_label) + REGSTRLEN);
+    state->code_len += sprintf(state->code + state->code_len, "\tjz\t%s, %s\n", false_label, state->reg_names[cond]);
+    gen_ast(ast->children[1], state, -1);
+    
+    state_alloc_atleast(state, 7 + strlen(false_label) + strlen(end_label));
+    state->code_len += sprintf(state->code + state->code_len, "\tjp %s\n%s:\n", end_label, false_label);
+    gen_ast(ast->children[2], state, -1);
+    
+    state_alloc_atleast(state, 2 + strlen(end_label));
+    state->code_len += sprintf(state->code + state->code_len, "%s:\n", end_label);
+    free(end_label);
+    free(false_label);
+}
+
 int gen_ast(AST *ast, CGState *state, int reg) {
+    switch(ast->type) {
+        case AST_KIF:
+            return cgif(state, ast);
+        default: break;
+    }
+
     int *ch_regs;
     if (ast->children_n > 0) {
         ch_regs = malloc(sizeof(int) * ast->children_n);

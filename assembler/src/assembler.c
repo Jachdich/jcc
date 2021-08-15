@@ -34,7 +34,7 @@ int is_reg(char *str) {
 }
 
 int is_twobyte(uint8_t opcode) {
-    return opcode == 0x02 || opcode == 0x03 || opcode == 0x0f || opcode == 0x11 || opcode == 0x13 || opcode == 0x14;
+    return opcode == 0x02 || opcode == 0x03 || opcode == 0x0f || opcode == 0x11 || opcode == 0x13 || opcode == 0x14 || opcode == 0x15;
 }
 
 uint8_t get_opcode(char **str) {
@@ -50,7 +50,7 @@ uint8_t get_opcode(char **str) {
     //printf("%s\n", init);
     if (strncmp(init, "mov", sz)  == 0) return 0x00;
     if (strncmp(init, "movi", sz) == 0) return 0x01;
-    if (strncmp(init, "jc", sz)   == 0) return 0x02;
+    if (strncmp(init, "jz", sz)   == 0) return 0x02;
     if (strncmp(init, "jp", sz)   == 0) return 0x03;
     if (strncmp(init, "out", sz)  == 0) return 0x04;
     if (strncmp(init, "add", sz)  == 0) return 0x05;
@@ -67,8 +67,14 @@ uint8_t get_opcode(char **str) {
     if (strncmp(init, "halt", sz) == 0) return 0x10;
     if (strncmp(init, "call", sz) == 0) return 0x11;
     if (strncmp(init, "ret", sz)  == 0) return 0x12;
-    if (strncmp(init, "movra", sz) == 0) return 0x13;
-    if (strncmp(init, "movar", sz) == 0) return 0x14;
+    if (strncmp(init, "movra",sz) == 0) return 0x13;
+    if (strncmp(init, "movar",sz) == 0) return 0x14;
+    if (strncmp(init, "jnz", sz)  == 0) return 0x15;
+    if (strncmp(init, "cmp", sz)  == 0) return 0x16;
+    if (strncmp(init, "lt", sz)   == 0) return 0x17;
+    if (strncmp(init, "lte", sz)  == 0) return 0x18;
+    if (strncmp(init, "gt", sz)   == 0) return 0x19;
+    if (strncmp(init, "gte", sz)  == 0) return 0x1A;
     printf("Unknown opcode %s\n", init);
     return -1;
 }
@@ -109,7 +115,6 @@ const char *argtypetostr(ArgType ty) {
         case AT_REG:   return "register";
         case AT_INT:   return "integer";
         case AT_LABEL: return "label";
-        case AT_COND:  return "condition";
         default: return "undefined";
     }
 }
@@ -123,23 +128,7 @@ Arg *read_args(char *str) {
     if (*str == 0) { return posargs; }
     for (int i = 0; i < 3; i++) {
         //printf("It's a str: %s\n", str);
-        if (strsepcmp(str, "z") == 0) {
-            str += 1;
-            posargs[i].i = 1;
-            posargs[i].t = AT_COND;
-        } else if (strsepcmp(str, "nz") == 0) {
-            str += 2;
-            posargs[i].i = 3;
-            posargs[i].t = AT_COND;
-        } else if (strsepcmp(str, "c") == 0) {
-            str += 1;
-            posargs[i].i = 0;
-            posargs[i].t = AT_COND;
-        } else if (strsepcmp(str, "nc") == 0) {
-            str += 2;
-            posargs[i].i = 2;
-            posargs[i].t = AT_COND;
-        } else if (is_reg(str)) {
+        if (is_reg(str)) {
             str++;
             posargs[i].i = 0;
             while (*str >= '0' && *str <= '9') {
@@ -222,7 +211,7 @@ int args_match(uint8_t opcode, Arg *args, int linenum, char *line) {
     switch (opcode) {
         case 0x00: return args_assert(args, AT_REG,   AT_REG,   AT_NONE, linenum, line);
         case 0x01: return args_assert(args, AT_INT,   AT_REG,   AT_NONE, linenum, line);
-        case 0x02: return args_assert(args, AT_COND,  AT_LABEL, AT_REG,  linenum, line);
+        case 0x02: return args_assert(args, AT_LABEL, AT_REG,   AT_NONE, linenum, line);
         case 0x03: return args_assert(args, AT_LABEL, AT_NONE,  AT_NONE, linenum, line);
         case 0x04: return args_assert(args, AT_REG,   AT_NONE,  AT_NONE, linenum, line);
         case 0x05: return args_assert(args, AT_REG,   AT_REG,   AT_REG,  linenum, line);
@@ -240,7 +229,13 @@ int args_match(uint8_t opcode, Arg *args, int linenum, char *line) {
         case 0x11: return args_assert(args, AT_LABEL, AT_NONE,  AT_NONE, linenum, line);
         case 0x12: return args_assert(args, AT_NONE,  AT_NONE,  AT_NONE, linenum, line);
         case 0x13: return args_assert(args, AT_REG,   AT_LABEL, AT_NONE, linenum, line);
-        case 0x14: return args_assert(args, AT_LABEL,  AT_REG,  AT_NONE, linenum, line);
+        case 0x14: return args_assert(args, AT_LABEL, AT_REG,   AT_NONE, linenum, line);
+        case 0x15: return args_assert(args, AT_LABEL, AT_REG,   AT_NONE, linenum, line);
+        case 0x16: return args_assert(args, AT_REG,   AT_REG,   AT_REG,  linenum, line);
+        case 0x17: return args_assert(args, AT_REG,   AT_REG,   AT_REG,  linenum, line);
+        case 0x18: return args_assert(args, AT_REG,   AT_REG,   AT_REG,  linenum, line);
+        case 0x19: return args_assert(args, AT_REG,   AT_REG,   AT_REG,  linenum, line);
+        case 0x1A: return args_assert(args, AT_REG,   AT_REG,   AT_REG,  linenum, line);
         default:
             fprintf(stderr, "Bug: Unrecognised opcode %02x\n", opcode);
             return 0;
@@ -253,7 +248,8 @@ size_t gen_instrs(Reader *r, Instr **instrs_ptr) {
     int line_num = 0;
     size_t len = 0;
     size_t cap = 64;
-    char *next_lab = NULL;
+    char **next_labs = NULL;
+    size_t lablen = 0;
     while (reader_bytes_left(r) > 0) {
         char *line = reader_read_line(r);
         char *line_init = malloc(strlen(line) + 1);
@@ -262,8 +258,13 @@ size_t gen_instrs(Reader *r, Instr **instrs_ptr) {
         
         if (*line == 0) continue;
         char *lab = read_label(&line);
-
-        if (*line == 0) { next_lab = lab; continue; }
+        if (lab != NULL) {
+            next_labs = realloc(next_labs, sizeof(*next_labs) * (lablen + 1));
+            next_labs[lablen++] = lab;
+        }
+        if (*line == 0) { 
+            continue;
+        }
 
         uint8_t opcode;
         Arg *args;
@@ -288,18 +289,10 @@ size_t gen_instrs(Reader *r, Instr **instrs_ptr) {
             }
             is_lit = 0;
         }
-        
-        if (lab != NULL && next_lab != NULL) {
-            printf("Error: two labels pointing to the same line! (fix me please this is a stupid restriction)\n");
-            exit(0);
-        }
-        
-        if (lab == NULL && next_lab != NULL) {
-            lab = next_lab;
-            next_lab = NULL;
-        }
-                
-        instrs[len++] = (Instr){opcode, args, lab, is_lit};
+
+        instrs[len++] = (Instr){opcode, args, next_labs, lablen, is_lit};
+        next_labs = NULL;
+        lablen = 0;
 
         if (len >= cap) {
             *instrs_ptr = realloc(instrs, sizeof(Instr) * (cap *= 2));
@@ -330,9 +323,9 @@ size_t resolve_symbols(Instr *instrs, size_t num_instrs, struct LinkTable *table
     int curr_pos = 0;
     for (size_t i = 0; i < num_instrs; i++) {
         Instr in = instrs[i];
-        if (in.label_at != NULL) {
-            table->res_syms[table->res_pos] = in.label_at;
-            in.label_at = NULL;
+        for (int lp = 0; lp < in.num_labels_at; lp++) {
+            table->res_syms[table->res_pos] = in.labels_at[lp];
+            printf("LABELS AT lp %d = %s\n", lp, in.labels_at[lp]);
             table->locs[table->res_pos] = curr_pos;
             table->res_pos += 1;
             if (table->res_pos >= table->res_cap) {
@@ -341,6 +334,7 @@ size_t resolve_symbols(Instr *instrs, size_t num_instrs, struct LinkTable *table
                 table->res_cap *= 2;
             }
         }
+        free(in.labels_at);
         
         curr_pos += 4;
         if (is_twobyte(in.opcode)) {
@@ -389,11 +383,6 @@ size_t resolve_symbols(Instr *instrs, size_t num_instrs, struct LinkTable *table
             curr_pos += 4;
         }
     }
-    /*
-    for (size_t i = 0; i < spos; i++) {
-        free(syms[spos]);
-    }
-    free(syms);*/
     return curr_pos;
 }
 
@@ -416,7 +405,7 @@ size_t reorder_args(uint8_t **code_ptr, Instr *instrs, size_t num_instrs, size_t
             switch (in.opcode) {
                 case 0x00: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = 0;     break;
                 case 0x01: code[pos++] = a[1].i; writeshort(code, &pos, a[0].i);            break;
-                case 0x02: code[pos++] = a[0].i; code[pos++] = a[2].i; code[pos++] = 0; writeqword(code, &pos, a[1].i); break;
+                case 0x02: code[pos++] = a[1].i; code[pos++] = 0; code[pos++] = 0; writeqword(code, &pos, a[0].i); break;
                 case 0x03: code[pos++] = 0; code[pos++] = 0; code[pos++] = 0; writeqword(code, &pos, a[0].i); break;
                 case 0x04: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0;          break;
                 
@@ -437,7 +426,13 @@ size_t reorder_args(uint8_t **code_ptr, Instr *instrs, size_t num_instrs, size_t
                 case 0x12: code[pos++] = 0; code[pos++] = 0; code[pos++] = 0; break;
                 case 0x13: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0; writeqword(code, &pos, a[1].i); break;
                 case 0x14: code[pos++] = a[1].i; code[pos++] = 0; code[pos++] = 0; writeqword(code, &pos, a[0].i); break;
-                default: break;
+                case 0x15: code[pos++] = a[1].i; code[pos++] = 0; code[pos++] = 0; writeqword(code, &pos, a[0].i); break;
+                case 0x16: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;
+                case 0x17: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;
+                case 0x18: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;
+                case 0x19: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;
+                case 0x1A: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;
+       default: break;
             }
         }
         free(in.args);

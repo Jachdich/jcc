@@ -121,11 +121,11 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
     m->pc = 0;
     while ((unsigned)m->pc < ninstr) {
         struct Instruction instr = stream[m->pc++];
-        printf("Pc: %02x, Regs: %02x %02x %02x %02x, opcode: %s %02x, %02x, %02x (%02x) (next qword %04x instr %04x)\n",
+        /*printf("Pc: %02x, Regs: %02x %02x %02x %02x, opcode: %s %02x, %02x, %02x (%02x) (next qword %04x instr %04x)\n",
                 m->pc, m->regs[0], m->regs[1], m->regs[2], m->regs[3],
                 op_name(instr.opcode), instr.arg1, instr.arg2, instr.arg3,
                 (signed)instr.arg23, *((int32_t*)(stream + m->pc)), *((int32_t*)(stream + m->pc)) / 4);
-        switch (instr.opcode) {
+        */switch (instr.opcode) {
             case 0x00:
                 m->regs[instr.arg2] = m->regs[instr.arg1];
                 break;

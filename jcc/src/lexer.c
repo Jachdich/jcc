@@ -41,6 +41,10 @@ LexTokenType get_keyword(char *s) {
 Error lex_read_token(Reader *r, LexToken *tok) {
     while (isspace(reader_peek(r))) { 
         reader_consume(r);
+        if (reader_bytes_left(r) == 0) {
+            tok->type = -1;
+            return (Error){0, NULL};
+        }
     }
     
     if (isdigit(reader_peek(r))) {
@@ -70,7 +74,7 @@ Error lex_read_token(Reader *r, LexToken *tok) {
         while (reader_consume(r) != '"') {
             if (reader_bytes_left(r) <= 0) {
                 *tok = (LexToken){NULL, 0, TOK_INVALID};
-                return (Error){1, "EOL whilst scanning literal"};
+                return error_construct(1, "EOL whilst scanning literal");
             }
         }
         size_t sz = r->pos - start;
@@ -108,6 +112,7 @@ Error lex_read_token(Reader *r, LexToken *tok) {
     } else if (reader_consume_if(r, '-')) { *tok = (LexToken){NULL, 0, TOK_SUB};
     } else if (reader_consume_if(r, '*')) { *tok = (LexToken){NULL, 0, TOK_MUL};
     } else if (reader_consume_if(r, '/')) { *tok = (LexToken){NULL, 0, TOK_DIV};
+    } else if (reader_consume_if(r, '%')) { *tok = (LexToken){NULL, 0, TOK_MODULO};
     } else if (reader_consume_if(r, '>')) { 
         if (reader_peek(r) == '=') { *tok = (LexToken){NULL, 0, TOK_GTE};
         } else {                     *tok = (LexToken){NULL, 0, TOK_GT}; }
@@ -137,8 +142,13 @@ Error lex_tokenise_line(Reader *line, LexTokenStream *s) {
     }
     while (reader_bytes_left(line) > 0) {
         LexToken t;
-        lex_read_token(line, &t);
-        lex_append_token(s, t);
+        Error e = lex_read_token(line, &t);
+        if (e.status_code != 0) {
+            return e;
+        }
+        if ((int)t.type != -1) {
+            lex_append_token(s, t);
+        }
     }
     return (Error){0, NULL};
 }
@@ -175,7 +185,7 @@ LexToken *lex_consume_assert(LexTokenStream *s, LexTokenType ty) {
     LexToken *t = lex_consume(s);
     if (t->type != ty) {
         fprintf(stderr, "Syntax error: Expected '%s', but got '%s' instead (value %lu).\n", toktostr(ty), toktostr(t->type), t->i);
-        exit(0);
+        exit(1);
     }
     return t;
 }
@@ -184,7 +194,7 @@ LexToken *lex_peek_assert(LexTokenStream *s, LexTokenType ty) {
     LexToken *t = lex_peek(s);
     if (t->type != ty) {
         fprintf(stderr, "Syntax error: Expected '%s', but got '%s' instead.\n", toktostr(ty), toktostr(t->type));
-        exit(0);
+        exit(1);
     }
     return t;
 }
@@ -238,6 +248,7 @@ const char *toktostr(LexTokenType tok) {
         case TOK_ANDAND:     return "TOK_ANDAND    ";
         case TOK_OR:         return "TOK_OR        ";
         case TOK_OROR:       return "TOK_OROR      ";
+        case TOK_MODULO:     return "TOK_MODULO    ";
         case TOK_KINT:       return "TOK_KINT      ";
         case TOK_KCHAR:      return "TOK_KCHAR     ";
         case TOK_KSTRUCT:    return "TOK_KSTRUCT   ";
@@ -332,6 +343,7 @@ char *lex_reconstruct_src(LexTokenStream *s) {
             case TOK_ANDAND:     strcat_alloc(&out, "&&", &outsz, &outpos); break;
             case TOK_OR:         strcat_alloc(&out, "|", &outsz, &outpos); break;
             case TOK_OROR:       strcat_alloc(&out, "||", &outsz, &outpos); break;
+            case TOK_MODULO:     strcat_alloc(&out, "%", &outsz, &outpos); break;
             case TOK_KINT:       strcat_alloc(&out, "int ", &outsz, &outpos); break;
             case TOK_KCHAR:      strcat_alloc(&out, "char ", &outsz, &outpos); break;
             case TOK_KSTRUCT:    strcat_alloc(&out, "struct ", &outsz, &outpos); break;

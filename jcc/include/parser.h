@@ -29,6 +29,7 @@ enum ASTType {
     AST_ANDAND,
     AST_OR,
     AST_OROR,
+    AST_MODULO,
     
     AST_KINT,
     AST_KCHAR,

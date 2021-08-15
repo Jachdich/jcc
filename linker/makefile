@@ -4,7 +4,7 @@ OBJECTS := $(patsubst src/%,obj/%,$(SOURCES:.c=.o))
 EXENAME := jld
 
 $(EXENAME): $(OBJECTS)
-	gcc $(OBJECTS) -lobj -o $@
+	gcc $(OBJECTS) -ljobj -o $@
 
 libjld.a: $(OBJECTS)
 	ar -rc $@ $(filter-out obj/args.o obj/main.o,$(OBJECTS))

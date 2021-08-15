@@ -34,6 +34,7 @@ enum LexTokenType {
     TOK_ANDAND,
     TOK_OR,
     TOK_OROR,
+    TOK_MODULO,
 
     TOK_KINT,
     TOK_KCHAR,

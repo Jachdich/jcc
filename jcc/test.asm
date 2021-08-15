@@ -1,25 +1,25 @@
-a: dd 0
+i: dd 0
 _start:
-	movi	18 -> r0
-	movra	r0 -> a
-	movar	a -> r0
-	movi	14 -> r1
-	lt	r0, r1 -> r0
-	jz	lab_000, r0
-	movi	1 -> r1
-	out	r1
-	jp lab_001
+	movi	0 -> r0
+	movra	r0 -> i
 lab_000:
-	movar	a -> r1
-	movi	18 -> r2
-	lt	r1, r2 -> r1
-	jz	lab_002, r1
+	movar	i -> r0
+	movi	10 -> r1
+	lt	r0, r1 -> r0
+	jz	lab_001, r0
+	movar	i -> r1
 	movi	2 -> r2
+	mod	r1, r2 -> r1
+	movi	0 -> r2
+	cmp	r1, r2 -> r1
+	jz	lab_002, r1
+	movar	i -> r2
 	out	r2
-	jp lab_003
 lab_002:
-	movi	3 -> r2
-	out	r2
-lab_003:
+	movar	i -> r2
+	movi	1 -> r3
+	add	r2, r3 -> r2
+	movra	r2 -> i
+	jp	lab_000
 lab_001:
 	ret

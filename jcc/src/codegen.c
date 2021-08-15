@@ -30,7 +30,8 @@ enum {
     CG_LT,
     CG_LTE,
     CG_GT,
-    CG_GTE
+    CG_GTE,
+    CG_MOD,
 };
 
 typedef struct CGState CGState;
@@ -150,27 +151,61 @@ int gen_ast(AST *ast, CGState *state, int reg);
 
 int cgif(CGState *state, AST *ast) {
     int cond = gen_ast(ast->children[0], state, -1);
-    char *false_label = state_gen_label(state);
+    char *false_label = NULL;
+    if (ast->children_n == 3) {
+        false_label = state_gen_label(state);
+    }
     char *end_label = state_gen_label(state);
 
-    state_alloc_atleast(state, 8 + strlen(false_label) + REGSTRLEN);
-    state->code_len += sprintf(state->code + state->code_len, "\tjz\t%s, %s\n", false_label, state->reg_names[cond]);
+    char *l;
+    if (ast->children_n == 3) {
+        l = false_label;
+    } else {
+        l = end_label;
+    }
+
+    state_alloc_atleast(state, 8 + strlen(l) + REGSTRLEN);
+    state->code_len += sprintf(state->code + state->code_len, "\tjz\t%s, %s\n", l, state->reg_names[cond]);
     gen_ast(ast->children[1], state, -1);
-    
-    state_alloc_atleast(state, 7 + strlen(false_label) + strlen(end_label));
-    state->code_len += sprintf(state->code + state->code_len, "\tjp %s\n%s:\n", end_label, false_label);
-    gen_ast(ast->children[2], state, -1);
+
+    if (ast->children_n == 3) {
+        state_alloc_atleast(state, 7 + strlen(false_label) + strlen(end_label));
+        state->code_len += sprintf(state->code + state->code_len, "\tjp %s\n%s:\n", end_label, false_label);
+        gen_ast(ast->children[2], state, -1);
+    }
     
     state_alloc_atleast(state, 2 + strlen(end_label));
     state->code_len += sprintf(state->code + state->code_len, "%s:\n", end_label);
     free(end_label);
     free(false_label);
+
+    return -1;
+}
+
+int cgwhile(CGState *state, AST *ast) {
+    char *start_label = state_gen_label(state);
+    char *end_label = state_gen_label(state);
+    state_alloc_atleast(state, 2 + strlen(start_label));
+    state->code_len += sprintf(state->code + state->code_len, "%s:\n", start_label);
+    int reg = gen_ast(ast->children[0], state, -1);
+
+    state_alloc_atleast(state, 8 + REGSTRLEN + strlen(end_label));
+    state->code_len += sprintf(state->code + state->code_len, "\tjz\t%s, %s\n", end_label, state->reg_names[reg]);
+
+    gen_ast(ast->children[1], state, -1);
+
+    state_alloc_atleast(state, 2 + 5 + strlen(start_label) + strlen(end_label));
+    state->code_len += sprintf(state->code + state->code_len, "\tjp\t%s\n%s:\n", start_label, end_label);
+
+    return -1;
 }
 
 int gen_ast(AST *ast, CGState *state, int reg) {
     switch(ast->type) {
         case AST_KIF:
             return cgif(state, ast);
+        case AST_KWHILE:
+            return cgwhile(state, ast);
         default: break;
     }
 
@@ -190,6 +225,7 @@ int gen_ast(AST *ast, CGState *state, int reg) {
         case AST_SUB:    res = cgmathop(ch_regs[0], ch_regs[1], CG_SUB, state); break;
         case AST_MUL:    res = cgmathop(ch_regs[0], ch_regs[1], CG_MUL, state); break;
         case AST_DIV:    res = cgmathop(ch_regs[0], ch_regs[1], CG_DIV, state); break;
+        case AST_MODULO: res = cgmathop(ch_regs[0], ch_regs[1], CG_MOD, state); break;
         case AST_COMPARE:res = cgmathop(ch_regs[0], ch_regs[1], CG_CMP, state); break;
         case AST_GT:     res = cgmathop(ch_regs[0], ch_regs[1], CG_GT, state); break;
         case AST_GTE:    res = cgmathop(ch_regs[0], ch_regs[1], CG_GTE, state); break;
@@ -202,7 +238,7 @@ int gen_ast(AST *ast, CGState *state, int reg) {
         case AST_KPRINT: cgprintint(state, ch_regs[0]); break;
         default:
             fprintf(stderr, "Error: unrecognised token '%s'\n", asttypetostr(ast->type));
-            exit(0);
+            exit(1);
             break;
     }
 
@@ -214,7 +250,7 @@ int gen_ast(AST *ast, CGState *state, int reg) {
 
 Error cg_gen(AST *ast, char **code, SymTable *table) {
     char *reg_names[] = {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"};
-    char *op_names[]  = {"add", "sub", "mul", "div", "cmp", "lt", "lte", "gt", "gte"};
+    char *op_names[]  = {"add", "sub", "mul", "div", "cmp", "lt", "lte", "gt", "gte", "mod"};
     const char *preamble = "_start:\n";
     const char *postamble = "\tret\n";
 

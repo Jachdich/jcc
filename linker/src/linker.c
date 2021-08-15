@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../include/linker.h"
-#include "../../objtools/include/obj.h"
+#include <jobj/jobj.h>
 
 size_t linker_link(uint8_t **input, size_t n, size_t *inp_lens, uint8_t **data) {
     uint8_t *total_code = malloc(3 * 4);
@@ -19,7 +19,7 @@ size_t linker_link(uint8_t **input, size_t n, size_t *inp_lens, uint8_t **data) 
         struct LinkTable table;
         table_init(&table);
         uint8_t *code = NULL;
-        size_t codelen = process_file(contents, len, &code, &table);
+        size_t codelen = jobj_process_file(contents, len, &code, &table);
         printf("codelen init %lu\n", len);
 
         uint32_t delta = max_last_id;

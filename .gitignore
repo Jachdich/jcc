@@ -1,2 +1,4 @@
 log.txt
 obj
+*.o
+*/log.txt

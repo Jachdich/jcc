@@ -55,6 +55,7 @@ enum ASTType {
     AST_DECL_VAL,
 
     AST_PROG,
+    AST_FUNC,
 };
 
 enum VarType {
@@ -67,6 +68,11 @@ enum VarType {
     VAR_KSHORT,
 };
 
+enum {
+    S_VAR,
+    S_FUNC,
+};
+
 typedef enum ASTType ASTType;
 typedef enum VarType VarType;
 typedef struct Symbol Symbol;
@@ -77,12 +83,15 @@ struct AST {
     size_t children_n;
     ASTType type;
     size_t i;
+    VarType vartype;
 };
 
 struct Symbol {
     char *s;
     VarType ty;
     size_t ident;
+    int stype;
+    int init_value;
 };
 
 struct SymTable {

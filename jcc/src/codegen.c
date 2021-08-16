@@ -200,12 +200,27 @@ int cgwhile(CGState *state, AST *ast) {
     return -1;
 }
 
+int cgfunc(CGState *state, AST *ast) {
+    size_t ident = ast->i;
+    char *label = state->table->symbols[ident].s;
+    state_alloc_atleast(state, 2 + sizeof(label));
+    state->code_len += sprintf(state->code + state->code_len, "%s:\n", label);
+
+    gen_ast(ast->children[0], state, -1);
+
+    state_alloc_atleast(state, 5);
+    state->code_len += sprintf(state->code + state->code_len, "\tret\n");
+    return -1;
+}
+
 int gen_ast(AST *ast, CGState *state, int reg) {
     switch(ast->type) {
         case AST_KIF:
             return cgif(state, ast);
         case AST_KWHILE:
             return cgwhile(state, ast);
+        case AST_FUNC:
+            return cgfunc(state, ast);
         default: break;
     }
 
@@ -251,31 +266,19 @@ int gen_ast(AST *ast, CGState *state, int reg) {
 Error cg_gen(AST *ast, char **code, SymTable *table) {
     char *reg_names[] = {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"};
     char *op_names[]  = {"add", "sub", "mul", "div", "cmp", "lt", "lte", "gt", "gte", "mod"};
-    const char *preamble = "_start:\n";
-    const char *postamble = "\tret\n";
 
-    size_t decl_len = 128; //fuck off
-    size_t pre_len  = strlen(preamble);
-    size_t post_len = strlen(postamble);
-    
     CGState state;
     state_init(&state, 16, reg_names, op_names, table);
 
-    state_alloc_atleast(&state, pre_len + decl_len);
-
     for (uint32_t i = 0; i < table->pos; i++) {
-        state.code_len += sprintf(state.code + state.code_len, "%s: dd 0\n", table->symbols[i].s);
+        if (table->symbols[i].stype == S_VAR) {
+            state_alloc_atleast(&state, 7 + strlen(table->symbols[i].s));
+            state.code_len += sprintf(state.code + state.code_len, "%s: dd %d\n", table->symbols[i].s, table->symbols[i].init_value);
+        }
     }
     
-    strcpy(state.code + state.code_len, preamble);
-    state.code_len += pre_len;
-    
     gen_ast(ast, &state, -1);
-    
-    state_alloc_atleast(&state, post_len);
-    strcpy(state.code + state.code_len, postamble);
-    state.code_len += post_len;
-    
+
     state_free(&state);
 
     *code = state.code;

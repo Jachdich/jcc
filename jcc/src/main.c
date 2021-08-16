@@ -8,6 +8,13 @@
 #include "../include/codegen.h"
 #include "../include/args.h"
 
+void sym_init(SymTable *t, SymTable *outer) {
+    t->pos = 0;
+    t->capacity = 64;
+    t->outer = outer;
+    t->symbols = malloc(sizeof(Symbol) * 64);
+}
+
 int main(int argc, char **argv) {
     Args args = parse_args(argc, argv);
     if (args.status != 0) {
@@ -59,34 +66,52 @@ int main(int argc, char **argv) {
     printf("%s\n", src);
     free(src);
 
-    AST ast;
-    SymTable table;
-    int ast_err = ast_gen(&ast, &s, &table);
-    if (ast_err != 0) {
-        fprintf(stderr, "%s: Parser returned non-zero status %d\n", argv[0], ast_err);
-        lex_free(&s);
-        reader_free(&preproc_r);
-        ast_free(&ast);
-        return ast_err;
-    }
+    char *all_code = malloc(1024);
+    size_t code_len = 0;
+    size_t code_cap = 1024;
+
+    s.pos = s.start;
+    while (1) {
+        AST ast;
+        SymTable table;
+        sym_init(&table, NULL);
+        int ast_err = ast_gen(&ast, &s, &table);
+        if (ast_err != 0) {
+            fprintf(stderr, "%s: Parser returned non-zero status %d\n", argv[0], ast_err);
+            lex_free(&s);
+            reader_free(&preproc_r);
+            ast_free(&ast);
+            return ast_err;
+        }
     
-    ast_print(&ast);
-    char *code;
-    cg_gen(&ast, &code, &table);
+        ast_print(&ast);
+        char *code;
+        cg_gen(&ast, &code, &table);
+        ast_free(&ast);
+        size_t clen = strlen(code);
+        if (code_len + clen >= code_cap) {
+            all_code = realloc(all_code, code_cap *= 2);
+        }
+        memcpy(all_code + code_len, code, clen);
+        code_len += clen;
+
+        if (lex_peek(&s)->type == TOK_EOF) {
+            break;
+        }
+    }
 
     if (args.ofname == NULL) {
-        printf("%s", code);
+        printf("%s", all_code);
     } else {
         FILE *fp = fopen(args.ofname, "w");
         if (fp == NULL) {
             fprintf(stderr, "Error opening output file '%s'\n", args.ofname);
         }
-        fprintf(fp, "%s", code);
+        fprintf(fp, "%s", all_code);
         fclose(fp);
     }
     
-    free(code);
-    ast_free(&ast);
+    free(all_code);
     lex_free(&s);
     reader_free(&preproc_r);
     return 0;

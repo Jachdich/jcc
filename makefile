@@ -1,9 +1,17 @@
+all:
+	make -C libjobj/
+	make -C linker/
+	make -C vm/
+	make -C objdump/
+	make -C jcc/
+	make -C assembler/
+
 install:
+	make -C libjobj/   install
 	make -C assembler/ install
 	make -C linker/    install
 	make -C vm/        install
 	make -C objdump/   install
-	make -C libjobj/   install
 	make -C jcc/  	   install
 
 clean:

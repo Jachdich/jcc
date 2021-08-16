@@ -1,1 +1,9 @@
-4 / 2 + 3;
+void _start() {
+    for (int i = 0; i < 100; i = i + 1) {
+        if (i % 2 == 0) {
+            print i;
+        } else {
+            print 1;
+        }
+    }
+}

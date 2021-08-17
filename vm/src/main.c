@@ -113,19 +113,25 @@ const char *op_name(uint8_t op) {
         case 0x18: return "lte  ";
         case 0x19: return "gt   ";
         case 0x1A: return "gte  ";
+        case 0x1B: return "alloc";
+        case 0x1C: return "free ";
+        case 0x1D: return "drefr";
+        case 0x1E: return "drefw";
     }
     return "Invalid opcode";
 }
 
 void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
     m->pc = 0;
+    m->pcsp = 0;
     while ((unsigned)m->pc < ninstr) {
         struct Instruction instr = stream[m->pc++];
-        /*printf("Pc: %02x, Regs: %02x %02x %02x %02x, opcode: %s %02x, %02x, %02x (%02x) (next qword %04x instr %04x)\n",
+        printf("Pc: %02x, Regs: %08x %08x %08x %08x, opcode: %s %02x, %02x, %02x (%04x) (next qword %08x instr %08x)\n",
                 m->pc, m->regs[0], m->regs[1], m->regs[2], m->regs[3],
                 op_name(instr.opcode), instr.arg1, instr.arg2, instr.arg3,
                 (signed)instr.arg23, *((int32_t*)(stream + m->pc)), *((int32_t*)(stream + m->pc)) / 4);
-        */switch (instr.opcode) {
+
+        switch (instr.opcode) {
             case 0x00:
                 m->regs[instr.arg2] = m->regs[instr.arg1];
                 break;
@@ -187,6 +193,7 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
 
             case 0x14: {
                 uint32_t addr = *((uint32_t*)(stream + m->pc++));
+                //assume relative address since it is a constant
                 m->regs[instr.arg1] = *(uint32_t*)((uint8_t*)stream + addr);
                 break;
             }
@@ -195,6 +202,31 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
             case 0x18: m->regs[instr.arg3] = m->regs[instr.arg1] <= m->regs[instr.arg2]; break;
             case 0x19: m->regs[instr.arg3] = m->regs[instr.arg1] >  m->regs[instr.arg2]; break;
             case 0x1A: m->regs[instr.arg3] = m->regs[instr.arg1] >= m->regs[instr.arg2]; break;
+            case 0x1B: m->regs[instr.arg1] = (int32_t)(size_t)malloc(*((uint32_t*)(stream + m->pc++))) | 0x80000000; break;
+            case 0x1C: free((void*)(size_t)(m->regs[instr.arg1] & 0x7FFFFFFF)); break;
+            case 0x1D: {
+                uint32_t addr = m->regs[instr.arg1];
+                if (addr & 0x80000000) {
+                    //absolute address
+                    m->regs[instr.arg2] = *(uint32_t*)((size_t)addr & 0x7FFFFFFF);
+                } else {
+                    //relative address
+                    m->regs[instr.arg2] = *(uint32_t*)((uint8_t*)stream + addr);
+                }
+                break;
+            }
+
+            case 0x1E: {
+                uint32_t addr = m->regs[instr.arg2];
+                if (addr & 0x80000000) {
+                    //absolute address
+                    *(uint32_t*)((size_t)addr & 0x7FFFFFFF) = m->regs[instr.arg1];
+                } else {
+                    //relative address
+                    *(uint32_t*)((uint8_t*)stream + addr) = m->regs[instr.arg1];
+                }
+                break;
+            }
             default:
                 printf("Error: unrecognised opcode %02x\n", instr.opcode);
                 exit(0);
@@ -228,4 +260,3 @@ int main(int argc, char **argv) {
     run(&m, instrs, ninstr);
     return 0;
 }
-

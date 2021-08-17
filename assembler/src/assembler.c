@@ -34,7 +34,7 @@ int is_reg(char *str) {
 }
 
 int is_twobyte(uint8_t opcode) {
-    return opcode == 0x02 || opcode == 0x03 || opcode == 0x0f || opcode == 0x11 || opcode == 0x13 || opcode == 0x14 || opcode == 0x15;
+    return opcode == 0x02 || opcode == 0x03 || opcode == 0x0f || opcode == 0x11 || opcode == 0x13 || opcode == 0x14 || opcode == 0x15 || opcode == 0x1B;
 }
 
 uint8_t get_opcode(char **str) {
@@ -75,6 +75,10 @@ uint8_t get_opcode(char **str) {
     if (strncmp(init, "lte", sz)  == 0) return 0x18;
     if (strncmp(init, "gt", sz)   == 0) return 0x19;
     if (strncmp(init, "gte", sz)  == 0) return 0x1A;
+    if (strncmp(init, "alloc",sz) == 0) return 0x1B;
+    if (strncmp(init, "free", sz) == 0) return 0x1C;
+    if (strncmp(init, "drefr",sz) == 0) return 0x1D;
+    if (strncmp(init, "drefw",sz) == 0) return 0x1E;
     printf("Unknown opcode %s\n", init);
     return -1;
 }
@@ -236,6 +240,10 @@ int args_match(uint8_t opcode, Arg *args, int linenum, char *line) {
         case 0x18: return args_assert(args, AT_REG,   AT_REG,   AT_REG,  linenum, line);
         case 0x19: return args_assert(args, AT_REG,   AT_REG,   AT_REG,  linenum, line);
         case 0x1A: return args_assert(args, AT_REG,   AT_REG,   AT_REG,  linenum, line);
+        case 0x1B: return args_assert(args, AT_REG,   AT_INT,   AT_NONE, linenum, line);
+        case 0x1C: return args_assert(args, AT_REG,   AT_NONE,  AT_NONE, linenum, line);
+        case 0x1D: return args_assert(args, AT_REG,   AT_REG,   AT_NONE, linenum, line);
+        case 0x1E: return args_assert(args, AT_REG,   AT_REG,   AT_NONE, linenum, line);
         default:
             fprintf(stderr, "Bug: Unrecognised opcode %02x\n", opcode);
             return 0;
@@ -432,7 +440,11 @@ size_t reorder_args(uint8_t **code_ptr, Instr *instrs, size_t num_instrs, size_t
                 case 0x18: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;
                 case 0x19: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;
                 case 0x1A: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;
-       default: break;
+                case 0x1B: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0; writeqword(code, &pos, a[1].i); break;
+                case 0x1C: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0;  break;
+                case 0x1D: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = 0;  break;
+                case 0x1E: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = 0;  break;
+                default: break;
             }
         }
         free(in.args);

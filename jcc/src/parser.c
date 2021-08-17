@@ -43,20 +43,20 @@ ASTType lextoast(LexTokenType ty) {
 
 VarType asttovar(ASTType ty) {
     switch (ty) {
-        case AST_KINT: return VAR_KINT;
-        case AST_KCHAR: return VAR_KCHAR;
-        case AST_KSTRUCT: return VAR_KSTRUCT;
-        case AST_KVOID: return VAR_KVOID;
-        case AST_KENUM: return VAR_KENUM;
-        case AST_KLONG: return VAR_KLONG;
-        case AST_KSHORT: return VAR_KSHORT;
+        case AST_KINT:    return VAR_INT;
+        case AST_KCHAR:   return VAR_CHAR;
+        case AST_KSTRUCT: return VAR_STRUCT;
+        case AST_KVOID:   return VAR_VOID;
+        case AST_KENUM:   return VAR_ENUM;
+        case AST_KLONG:   return VAR_LONG;
+        case AST_KSHORT:  return VAR_SHORT;
         default:
             printf("what the fuck, wrong type '%s' passed to asttovar\n", asttypetostr(ty));
             exit(1);
     }
 }
 
-size_t sym_new(SymTable *t, char *name, VarType type, int stype, int init_val) {
+Symbol *sym_new(SymTable *t, char *name, VarType type, int stype, int init_val) {
     if (t->pos >= t->capacity) {
         t->symbols = realloc(t->symbols, sizeof(Symbol) * (t->capacity *= 2));
     }
@@ -67,16 +67,16 @@ size_t sym_new(SymTable *t, char *name, VarType type, int stype, int init_val) {
     s.stype = stype;
     s.init_value = init_val;
     t->symbols[t->pos++] = s;
-    return s.ident;
+    return t->symbols + t->pos - 1;
 }
 
-size_t sym_find_id(SymTable *t, char *name) {
+Symbol *sym_find_from_str(SymTable *t, char *name) {
     for (size_t i = 0; i < t->pos; i++) {
         if (strcmp(name, t->symbols[i].s) == 0) {
-            return i;
+            return t->symbols + i;
         }
     }
-    return -1;
+    return NULL;
 }
 
 void sym_free(SymTable *t) {
@@ -86,12 +86,13 @@ void sym_free(SymTable *t) {
     }
 }
 
-AST *ast_construct(AST **children, size_t children_n, ASTType type, size_t i) {
+AST *ast_construct(AST **children, size_t children_n, ASTType type, size_t i, VarType ty) {
     AST *ast = malloc(sizeof(AST));
     ast->children = children;
     ast->children_n = children_n;
     ast->type = type;
     ast->i = i;
+    ast->vartype = ty;
     return ast;
 }
 
@@ -99,15 +100,15 @@ AST *number(LexTokenStream *s, SymTable *scope) {
     LexTokenType type = lex_peek(s)->type;
     if (type == TOK_INT) {
         LexToken *tok = lex_consume(s);
-        return ast_construct(NULL, 0, AST_INT_LIT, tok->i);
+        return ast_construct(NULL, 0, AST_INT_LIT, tok->i, VAR_INT);
     } else if (type == TOK_IDENT) {
         LexToken *tok = lex_consume(s);
-        size_t ident = sym_find_id(scope, tok->str);
-        if (ident == (size_t)-1) {
+        Symbol *s = sym_find_from_str(scope, tok->str);
+        if (s == NULL) {
             fprintf(stderr, "Error: variable '%s' not defined", tok->str);
             exit(1);
         }
-        return ast_construct(NULL, 0, AST_IDENT, ident);
+        return ast_construct(NULL, 0, AST_IDENT, s->ident, s->ty);
     } else {
         fprintf(stderr, "Error: expected int, got %s\n", toktostr(type));
         exit(1);
@@ -126,8 +127,8 @@ AST *vardecl(LexTokenStream *s, SymTable *scope) {
     case TOK_KLONG:
     case TOK_KSHORT: {
         LexToken *t = lex_consume_assert(s, TOK_IDENT);
-        size_t ident = sym_new(scope, t->str, asttovar(lextoast(type)), S_VAR, 0);
-        AST *child1 = ast_construct(NULL, 0, AST_LVIDENT, ident);
+        Symbol *s = sym_new(scope, t->str, asttovar(lextoast(type)), S_VAR, 0);
+        AST *child1 = ast_construct(NULL, 0, AST_LVIDENT, s->ident, s->ty);
         LexToken *t2 = lex_consume(s);
         if (t2->type != TOK_ASSIGN) {
             if (t2->type == TOK_SEMICOLON) {

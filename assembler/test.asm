@@ -1,5 +1,10 @@
 _start:
-    movi 3 -> r0
-    jcr nc, 0
-    jcr z, 1
-    halt
+    alloc r0, 4
+    drefr r0 -> r1
+    out r1
+    movi 69 -> r1
+    drefw r1 -> r0
+    drefr r0 -> r2
+    out r2
+    free r0
+    ret

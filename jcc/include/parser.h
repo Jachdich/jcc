@@ -59,13 +59,13 @@ enum ASTType {
 };
 
 enum VarType {
-    VAR_KINT,
-    VAR_KCHAR,
-    VAR_KSTRUCT,
-    VAR_KVOID,
-    VAR_KENUM,
-    VAR_KLONG,
-    VAR_KSHORT,
+    VAR_INT,
+    VAR_CHAR,
+    VAR_STRUCT,
+    VAR_VOID,
+    VAR_ENUM,
+    VAR_LONG,
+    VAR_SHORT,
 };
 
 enum {

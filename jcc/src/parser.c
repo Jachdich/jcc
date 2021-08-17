@@ -96,11 +96,25 @@ AST *ast_construct(AST **children, size_t children_n, ASTType type, size_t i, Va
     return ast;
 }
 
+VarType min_int_size(size_t i) {
+    if (i < 256) {
+        return VAR_CHAR;
+    } else if (i < 65536) {
+        return VAR_SHORT;
+    } else if (i < 4294967296) {
+        return VAR_INT;
+    } else {
+        return VAR_LONG;
+    }
+}
+
 AST *number(LexTokenStream *s, SymTable *scope) {
     LexTokenType type = lex_peek(s)->type;
     if (type == TOK_INT) {
         LexToken *tok = lex_consume(s);
-        return ast_construct(NULL, 0, AST_INT_LIT, tok->i, VAR_INT);
+        VarType ty = min_int_size(tok->i);
+        
+        return ast_construct(NULL, 0, AST_INT_LIT, tok->i, ty);
     } else if (type == TOK_IDENT) {
         LexToken *tok = lex_consume(s);
         Symbol *s = sym_find_from_str(scope, tok->str);
@@ -127,8 +141,8 @@ AST *vardecl(LexTokenStream *s, SymTable *scope) {
     case TOK_KLONG:
     case TOK_KSHORT: {
         LexToken *t = lex_consume_assert(s, TOK_IDENT);
-        Symbol *s = sym_new(scope, t->str, asttovar(lextoast(type)), S_VAR, 0);
-        AST *child1 = ast_construct(NULL, 0, AST_LVIDENT, s->ident, s->ty);
+        Symbol *sym = sym_new(scope, t->str, asttovar(lextoast(type)), S_VAR, 0);
+        AST *child1 = ast_construct(NULL, 0, AST_LVIDENT, sym->ident, VAR_NONE);
         LexToken *t2 = lex_consume(s);
         if (t2->type != TOK_ASSIGN) {
             if (t2->type == TOK_SEMICOLON) {
@@ -143,7 +157,7 @@ AST *vardecl(LexTokenStream *s, SymTable *scope) {
         AST **children = malloc(sizeof(AST*) * 2);
         children[1] = child1;
         children[0] = child2;
-        AST *out = ast_construct(children, 2, AST_ASSIGN, 0);
+        AST *out = ast_construct(children, 2, AST_ASSIGN, 0, VAR_NONE);
         return out;
 
         break;
@@ -159,14 +173,14 @@ AST *varassign(LexTokenStream *s, SymTable *scope) {
     lex_consume_assert(s, TOK_ASSIGN);
 
     AST **children = malloc(sizeof(AST*) * 2);
-    size_t ident = sym_find_id(scope, t->str);
-    if (ident == (size_t)-1) {
+    Symbol *sym = sym_find_from_str(scope, t->str);
+    if (sym == NULL) {
         fprintf(stderr, "Error: variable '%s' not defined", t->str);
         exit(1);
     }
-    children[1] = ast_construct(NULL, 0, AST_LVIDENT, ident);
+    children[1] = ast_construct(NULL, 0, AST_LVIDENT, sym->ident, sym->ty);
     children[0] = expr(s, scope);
-    return ast_construct(children, 2, AST_ASSIGN, 0);
+    return ast_construct(children, 2, AST_ASSIGN, 0, VAR_NONE);
 }
 
 
@@ -175,7 +189,7 @@ AST *printsmt(LexTokenStream *s, SymTable *scope) {
     AST *e = expr(s, scope);
     AST **child = malloc(sizeof(AST*));
     child[0] = e;
-    AST *ret = ast_construct(child, 1, AST_KPRINT, 0);
+    AST *ret = ast_construct(child, 1, AST_KPRINT, 0, VAR_NONE);
     return ret;
 }
 
@@ -188,7 +202,7 @@ AST *mulexpr(LexTokenStream *s, SymTable *scope) {
         AST **children = malloc(sizeof(AST*) * 2);
         children[0] = lhs;
         children[1] = rhs;
-        lhs = ast_construct(children, 2, lextoast(oper->type), 0);
+        lhs = ast_construct(children, 2, lextoast(oper->type), 0, lhs);
         type = lex_peek(s)->type;
     }
     

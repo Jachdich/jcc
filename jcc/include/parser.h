@@ -66,6 +66,7 @@ enum VarType {
     VAR_ENUM,
     VAR_LONG,
     VAR_SHORT,
+    VAR_NONE,
 };
 
 enum {

@@ -213,6 +213,13 @@ int cgfunc(CGState *state, AST *ast) {
     return -1;
 }
 
+int cgfunccall(CGState *state, int ident) {
+    char *label = state->table->symbols[ident].s;
+    state_alloc_atleast(state, 7 + strlen(label));
+    state->code_len += sprintf(state->code + state->code_len, "\tcall\t%s\n", label);
+    return -1;
+}
+
 int gen_ast(AST *ast, CGState *state, int reg) {
     switch(ast->type) {
         case AST_KIF:
@@ -251,6 +258,7 @@ int gen_ast(AST *ast, CGState *state, int reg) {
         case AST_LVIDENT:cgstoreglob(state, reg, sym_find(state->table, ast->i)); break;
         case AST_ASSIGN: res = ch_regs[0]; break;
         case AST_KPRINT: cgprintint(state, ch_regs[0]); break;
+        case AST_FUNCCALL: res = cgfunccall(state, ast->i); break;
         default:
             fprintf(stderr, "Error: unrecognised token '%s'\n", asttypetostr(ast->type));
             exit(1);

@@ -1,8 +1,11 @@
-void _start() {
-    int test = 32;
-    print test;
+void asdf2() {
+    print 2;
 }
 
-void __init__bruv() {
+void asdf() {
     print 1;
+}
+
+void _start() {
+    asdf();
 }

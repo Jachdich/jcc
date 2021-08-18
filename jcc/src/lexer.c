@@ -38,7 +38,7 @@ LexTokenType get_keyword(char *s) {
     return TOK_INVALID;
 }
 
-Error lex_read_token(Reader *r, LexToken *tok) {
+Error lex_read_token(Reader *r, LexToken *tok, int ln) {
     while (isspace(reader_peek(r))) { 
         reader_consume(r);
         if (reader_bytes_left(r) == 0) {
@@ -52,7 +52,7 @@ Error lex_read_token(Reader *r, LexToken *tok) {
         while (isdigit(reader_peek(r))) {
             i = i * 10 + (reader_consume(r) - '0');
         }
-        *tok = (LexToken){NULL, i, TOK_INT};
+        *tok = (LexToken){NULL, i, TOK_INT, ln};
     } else if (isalpha(reader_peek(r)) || reader_peek(r) == '_') {
         char *start = r->pos;
         while (isalnum(reader_peek(r)) || reader_peek(r) == '_') {
@@ -64,16 +64,16 @@ Error lex_read_token(Reader *r, LexToken *tok) {
         str[sz] = 0;
         LexTokenType kword;
         if ((kword = get_keyword(str)) != TOK_INVALID) {
-            *tok = (LexToken){NULL, 0, kword};
+            *tok = (LexToken){NULL, 0, kword, ln};
         } else {
-            *tok = (LexToken){str, 0, TOK_IDENT};
+            *tok = (LexToken){str, 0, TOK_IDENT, ln};
         }
     } else if (reader_peek(r) == '"') {
         reader_consume(r);
         char *start = r->pos;
         while (reader_consume(r) != '"') {
             if (reader_bytes_left(r) <= 0) {
-                *tok = (LexToken){NULL, 0, TOK_INVALID};
+                *tok = (LexToken){NULL, 0, TOK_INVALID, ln};
                 return error_construct(1, "EOL whilst scanning literal");
             }
         }
@@ -81,46 +81,46 @@ Error lex_read_token(Reader *r, LexToken *tok) {
         char *str = malloc(sz);
         strncpy(str, start, sz - 1);
         str[sz - 1] = 0;
-        *tok = (LexToken){str, 0, TOK_STR_LIT};
+        *tok = (LexToken){str, 0, TOK_STR_LIT, ln};
     } else if (reader_peek(r) == '=') {
         reader_consume(r);
         if (reader_peek(r) == '=') {
             reader_consume(r);
-            *tok = (LexToken){NULL, 0, TOK_COMPARE};
+            *tok = (LexToken){NULL, 0, TOK_COMPARE, ln};
         } else {
-            *tok = (LexToken){NULL, 0, TOK_ASSIGN};
+            *tok = (LexToken){NULL, 0, TOK_ASSIGN, ln};
         }
     } else if (reader_peek(r) == ';') {
         reader_consume(r);
-        *tok = (LexToken){NULL, 0, TOK_SEMICOLON};
+        *tok = (LexToken){NULL, 0, TOK_SEMICOLON, ln};
     } else if (reader_peek(r) == '{') {
         reader_consume(r);
-        *tok = (LexToken){NULL, 0, TOK_OBRACE};
+        *tok = (LexToken){NULL, 0, TOK_OBRACE, ln};
     } else if (reader_peek(r) == '}') {
         reader_consume(r);
-        *tok = (LexToken){NULL, 0, TOK_CBRACE};
+        *tok = (LexToken){NULL, 0, TOK_CBRACE, ln};
     } else if (reader_peek(r) == '(') {
         reader_consume(r);
-        *tok = (LexToken){NULL, 0, TOK_OPAREN};
+        *tok = (LexToken){NULL, 0, TOK_OPAREN, ln};
     } else if (reader_peek(r) == ')') {
         reader_consume(r);
-        *tok = (LexToken){NULL, 0, TOK_CPAREN};
+        *tok = (LexToken){NULL, 0, TOK_CPAREN, ln};
     } else if (reader_peek(r) == ',') {
         reader_consume(r);
-        *tok = (LexToken){NULL, 0, TOK_COMMA};
-    } else if (reader_consume_if(r, '+')) { *tok = (LexToken){NULL, 0, TOK_ADD};
-    } else if (reader_consume_if(r, '-')) { *tok = (LexToken){NULL, 0, TOK_SUB};
-    } else if (reader_consume_if(r, '*')) { *tok = (LexToken){NULL, 0, TOK_MUL};
-    } else if (reader_consume_if(r, '/')) { *tok = (LexToken){NULL, 0, TOK_DIV};
-    } else if (reader_consume_if(r, '%')) { *tok = (LexToken){NULL, 0, TOK_MODULO};
+        *tok = (LexToken){NULL, 0, TOK_COMMA, ln};
+    } else if (reader_consume_if(r, '+')) { *tok = (LexToken){NULL, 0, TOK_ADD, ln};
+    } else if (reader_consume_if(r, '-')) { *tok = (LexToken){NULL, 0, TOK_SUB, ln};
+    } else if (reader_consume_if(r, '*')) { *tok = (LexToken){NULL, 0, TOK_MUL, ln};
+    } else if (reader_consume_if(r, '/')) { *tok = (LexToken){NULL, 0, TOK_DIV, ln};
+    } else if (reader_consume_if(r, '%')) { *tok = (LexToken){NULL, 0, TOK_MODULO, ln};
     } else if (reader_consume_if(r, '>')) { 
-        if (reader_peek(r) == '=') { *tok = (LexToken){NULL, 0, TOK_GTE};
-        } else {                     *tok = (LexToken){NULL, 0, TOK_GT}; }
+        if (reader_peek(r) == '=') { *tok = (LexToken){NULL, 0, TOK_GTE, ln};
+        } else {                     *tok = (LexToken){NULL, 0, TOK_GT, ln}; }
     } else if (reader_consume_if(r, '<')) {
-        if (reader_peek(r) == '=') { *tok = (LexToken){NULL, 0, TOK_LTE};
-        } else {                     *tok = (LexToken){NULL, 0, TOK_LT}; }
+        if (reader_peek(r) == '=') { *tok = (LexToken){NULL, 0, TOK_LTE, ln};
+        } else {                     *tok = (LexToken){NULL, 0, TOK_LT, ln}; }
     } else {
-        *tok = (LexToken){NULL, 0, TOK_INVALID};
+        *tok = (LexToken){NULL, 0, TOK_INVALID, ln};
         char *buf = malloc(40);
         sprintf(buf, "Invalid character '%c' in input stream", reader_consume(r));
         return (Error){1, buf};
@@ -129,20 +129,20 @@ Error lex_read_token(Reader *r, LexToken *tok) {
     return (Error){0, NULL};
 }
 
-Error lex_tokenise_line(Reader *line, LexTokenStream *s) {
+Error lex_tokenise_line(Reader *line, LexTokenStream *s, int ln) {
     if (reader_peek(line) == '#') {
         size_t bytes = reader_bytes_left(line);
         char *str = malloc(bytes + 1);
         strncpy(str, line->start, bytes);
         str[bytes] = 0;
-        lex_append_token(s, (LexToken){str, 0, TOK_PREPROC});
+        lex_append_token(s, (LexToken){str, 0, TOK_PREPROC, ln});
         //printf("Alloc'ing str for token %lu in stream %lu\n", (long unsigned int)(s->pos - 1), (long unsigned int)s);
 
         return (Error){0, NULL};
     }
     while (reader_bytes_left(line) > 0) {
         LexToken t;
-        Error e = lex_read_token(line, &t);
+        Error e = lex_read_token(line, &t, ln);
         if (e.status_code != 0) {
             return e;
         }
@@ -154,13 +154,15 @@ Error lex_tokenise_line(Reader *line, LexTokenStream *s) {
 }
 
 Error lex_read_tokens(LexTokenStream *s, Reader *reader) {
+    int ln = 1;
     while (reader_bytes_left(reader) > 0) {
         char *line = reader_read_line(reader);
         Reader r;
         reader_construct_from(&r, line);
-        lex_tokenise_line(&r, s);
+        lex_tokenise_line(&r, s, ln);
+        ln++;
     }
-    lex_append_token(s, (LexToken){NULL, 0, TOK_EOF});
+    lex_append_token(s, (LexToken){NULL, 0, TOK_EOF, ln});
     s->pos = s->start;
     return (Error){0, NULL};
 }
@@ -181,10 +183,14 @@ LexToken *lex_peek(LexTokenStream *s) {
     return s->pos;
 }
 
+LexToken *lex_peek_n(LexTokenStream *s, int n) {
+    return s->pos + n - 1;
+}
+
 LexToken *lex_consume_assert(LexTokenStream *s, LexTokenType ty) {
     LexToken *t = lex_consume(s);
     if (t->type != ty) {
-        fprintf(stderr, "Syntax error: Expected '%s', but got '%s' instead (value %lu).\n", toktostr(ty), toktostr(t->type), t->i);
+        fprintf(stderr, "Ln %d: Syntax error: Expected '%s', but got '%s' instead (value %lu).\n", t->linenum, toktostr(ty), toktostr(t->type), t->i);
         exit(1);
     }
     return t;
@@ -193,10 +199,14 @@ LexToken *lex_consume_assert(LexTokenStream *s, LexTokenType ty) {
 LexToken *lex_peek_assert(LexTokenStream *s, LexTokenType ty) {
     LexToken *t = lex_peek(s);
     if (t->type != ty) {
-        fprintf(stderr, "Syntax error: Expected '%s', but got '%s' instead.\n", toktostr(ty), toktostr(t->type));
+        fprintf(stderr, "Ln %d: Syntax error: Expected '%s', but got '%s' instead.\n", t->linenum, toktostr(ty), toktostr(t->type));
         exit(1);
     }
     return t;
+}
+
+void lex_put_back(LexTokenStream *s) {
+    s->pos--;
 }
 
 void lex_free_token(LexToken *t) {

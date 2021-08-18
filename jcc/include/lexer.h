@@ -67,6 +67,7 @@ struct LexToken {
     char *str;
     size_t i;
     LexTokenType type;
+    int linenum;
 };
 
 typedef struct LexToken LexToken;
@@ -85,7 +86,7 @@ LexToken *lex_consume(LexTokenStream *s);
 LexToken *lex_peek(LexTokenStream *s);
 void lex_free(LexTokenStream *s);
 void lex_free_token(LexToken *t);
-Error lex_tokenise_line(Reader *line, LexTokenStream *s);
+Error lex_tokenise_line(Reader *line, LexTokenStream *s, int ln);
 void lex_print_tokens(LexTokenStream *s);
 void lex_append_token(LexTokenStream *s, LexToken t);
 void lex_init(LexTokenStream *s);
@@ -96,4 +97,6 @@ const char *toktostr(LexTokenType tok);
 
 LexToken *lex_consume_assert(LexTokenStream *s, LexTokenType ty);
 LexToken *lex_peek_assert(LexTokenStream *s, LexTokenType ty);
+LexToken *lex_peek_n(LexTokenStream *s, int n);
+void lex_put_back(LexTokenStream *s);
 #endif

@@ -71,10 +71,10 @@ int main(int argc, char **argv) {
     size_t code_cap = 1024;
 
     s.pos = s.start;
+    SymTable table;
+    sym_init(&table, NULL);
     while (1) {
         AST ast;
-        SymTable table;
-        sym_init(&table, NULL);
         int ast_err = ast_gen(&ast, &s, &table);
         if (ast_err != 0) {
             fprintf(stderr, "%s: Parser returned non-zero status %d\n", argv[0], ast_err);

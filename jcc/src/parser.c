@@ -108,6 +108,17 @@ VarType min_int_size(size_t i) {
     }
 }
 
+
+VarType combine_types(VarType a, VarType b) {
+    if (a == VAR_VOID || b == VAR_VOID) {
+        fprintf(stderr, "Error: void type expression used in expression\n");
+        exit(1);
+    }
+
+    //fuck off I'll fix it later
+    return VAR_INT;
+}
+
 AST *number(LexTokenStream *s, SymTable *scope) {
     LexTokenType type = lex_peek(s)->type;
     if (type == TOK_INT) {
@@ -131,8 +142,8 @@ AST *number(LexTokenStream *s, SymTable *scope) {
 AST *expr(LexTokenStream *s, SymTable *scope);
 
 AST *vardecl(LexTokenStream *s, SymTable *scope) {
-    LexTokenType type = lex_consume(s)->type;
-    switch (type) {
+    LexToken *tok = lex_consume(s);
+    switch (tok->type) {
     case TOK_KINT:
     case TOK_KCHAR:
     case TOK_KSTRUCT:
@@ -141,14 +152,14 @@ AST *vardecl(LexTokenStream *s, SymTable *scope) {
     case TOK_KLONG:
     case TOK_KSHORT: {
         LexToken *t = lex_consume_assert(s, TOK_IDENT);
-        Symbol *sym = sym_new(scope, t->str, asttovar(lextoast(type)), S_VAR, 0);
+        Symbol *sym = sym_new(scope, t->str, asttovar(lextoast(tok->type)), S_VAR, 0);
         AST *child1 = ast_construct(NULL, 0, AST_LVIDENT, sym->ident, VAR_NONE);
         LexToken *t2 = lex_consume(s);
         if (t2->type != TOK_ASSIGN) {
             if (t2->type == TOK_SEMICOLON) {
                 return NULL;
             } else {
-                fprintf(stderr, "Error: expected assignment operator or semicolon, got %s\n", toktostr(t->type));
+                fprintf(stderr, "Ln %d: Error: expected assignment operator or semicolon, got %s\n", t->linenum, toktostr(t->type));
                 exit(1);
             }
         }
@@ -163,7 +174,7 @@ AST *vardecl(LexTokenStream *s, SymTable *scope) {
         break;
     }
     default:
-        fprintf(stderr, "Error: expected type identifier, got %s\n", toktostr(type));
+        fprintf(stderr, "Ln %d: Error: expected type identifier, got %s\n", tok->linenum, toktostr(tok->type));
         exit(1);
     }
 }
@@ -175,11 +186,17 @@ AST *varassign(LexTokenStream *s, SymTable *scope) {
     AST **children = malloc(sizeof(AST*) * 2);
     Symbol *sym = sym_find_from_str(scope, t->str);
     if (sym == NULL) {
-        fprintf(stderr, "Error: variable '%s' not defined", t->str);
+        fprintf(stderr, "Ln %d: Error: variable '%s' not defined", t->linenum, t->str);
         exit(1);
     }
     children[1] = ast_construct(NULL, 0, AST_LVIDENT, sym->ident, sym->ty);
     children[0] = expr(s, scope);
+    if (combine_types(sym->ty, children[0]->vartype) != sym->ty) {
+        //one day, this will annoy me enough to fix it
+        //for now, stfu
+        fprintf(stderr, "Ln %d: Error: Narrowing or invalid conversion from %s to %s\n", t->linenum, (char*)NULL, (char*)NULL);
+        exit(1);
+    }
     return ast_construct(children, 2, AST_ASSIGN, 0, VAR_NONE);
 }
 
@@ -202,7 +219,7 @@ AST *mulexpr(LexTokenStream *s, SymTable *scope) {
         AST **children = malloc(sizeof(AST*) * 2);
         children[0] = lhs;
         children[1] = rhs;
-        lhs = ast_construct(children, 2, lextoast(oper->type), 0, lhs);
+        lhs = ast_construct(children, 2, lextoast(oper->type), 0, combine_types(lhs->vartype, rhs->vartype));
         type = lex_peek(s)->type;
     }
     
@@ -219,7 +236,7 @@ AST *addexpr(LexTokenStream *s, SymTable *scope) {
         AST **children = malloc(sizeof(AST*) * 2);
         children[0] = lhs;
         children[1] = rhs;
-        lhs = ast_construct(children, 2, lextoast(oper->type), 0);
+        lhs = ast_construct(children, 2, lextoast(oper->type), 0, combine_types(lhs->vartype, rhs->vartype));
         type = lex_peek(s)->type;
     }
     return lhs;
@@ -234,7 +251,7 @@ AST *expr(LexTokenStream *s, SymTable *scope) {
         AST **children = malloc(sizeof(AST*) * 2);
         children[0] = lhs;
         children[1] = rhs;
-        lhs = ast_construct(children, 2, lextoast(oper->type), 0);
+        lhs = ast_construct(children, 2, lextoast(oper->type), 0, combine_types(lhs->vartype, rhs->vartype));
         type = lex_peek(s)->type;
     }
     return lhs;
@@ -270,17 +287,16 @@ AST *compoundsmt(LexTokenStream *s, SymTable *scope) {
     ast_list_init(&lst);
     
     while ((t = lex_peek(s))->type != TOK_CBRACE) {
-        printf("compound\n");
         AST *a = statement(s, scope);
         if (a != NULL) {
             ast_list_append(&lst, a);
         }
-        if (a->type == AST_KPRINT || a->type == AST_ASSIGN) {
+        if (a->type == AST_KPRINT || a->type == AST_ASSIGN || a->type == AST_FUNCCALL) {
             lex_consume_assert(s, TOK_SEMICOLON);
         }
     }
     lex_consume_assert(s, TOK_CBRACE);
-    return ast_construct(lst.smts, lst.pos, AST_PROG, 0);
+    return ast_construct(lst.smts, lst.pos, AST_PROG, 0, VAR_NONE);
 }
 
 AST *ifsmt(LexTokenStream *s, SymTable *scope) {
@@ -307,7 +323,7 @@ AST *ifsmt(LexTokenStream *s, SymTable *scope) {
     children[1] = b;
     if (c != NULL)
         children[2] = c;
-    return ast_construct(children, cn, AST_KIF, 0);
+    return ast_construct(children, cn, AST_KIF, 0, VAR_NONE);
 }
 
 AST *whilesmt(LexTokenStream *s, SymTable *scope) {
@@ -319,7 +335,7 @@ AST *whilesmt(LexTokenStream *s, SymTable *scope) {
     AST **children = malloc(sizeof(AST*) * 2);
     children[0] = a;
     children[1] = b;
-    return ast_construct(children, 2, AST_KWHILE, 0);
+    return ast_construct(children, 2, AST_KWHILE, 0, VAR_NONE);
 }
 
 AST *forsmt(LexTokenStream *s, SymTable *scope) {
@@ -343,11 +359,33 @@ AST *forsmt(LexTokenStream *s, SymTable *scope) {
     ch3[1] = iter;
 
     ch2[0] = cond;
-    ch2[1] = ast_construct(ch3, 2, AST_PROG, 0);
+    ch2[1] = ast_construct(ch3, 2, AST_PROG, 0, VAR_NONE);
 
     ch1[0] = init;
-    ch1[1] = ast_construct(ch2, 2, AST_KWHILE, 0);
-    return ast_construct(ch1, 2, AST_PROG, 0);
+    ch1[1] = ast_construct(ch2, 2, AST_KWHILE, 0, VAR_NONE);
+    return ast_construct(ch1, 2, AST_PROG, 0, VAR_NONE);
+}
+
+AST *funccall(LexTokenStream *s, SymTable *scope) {
+    LexToken *tok = lex_consume_assert(s, TOK_IDENT);
+    Symbol *sym = sym_find_from_str(scope, tok->str);
+    if (sym == NULL) {
+        fprintf(stderr, "Ln %d: Error: Function '%s' is not defined\n", tok->linenum, tok->str);
+        exit(1);
+    };
+
+    lex_consume_assert(s, TOK_OPAREN);
+    if (lex_peek(s)->type != TOK_CPAREN) {
+        AST *exprast = expr(s, scope);
+        lex_consume_assert(s, TOK_CPAREN);
+
+        AST **ch = malloc(sizeof(AST*) * 1);
+        ch[0] = exprast;
+        return ast_construct(ch, 1, AST_FUNCCALL, sym->ident, VAR_VOID);
+    } else {
+        lex_consume_assert(s, TOK_CPAREN);
+        return ast_construct(NULL, 0, AST_FUNCCALL, sym->ident, VAR_VOID);
+    }
 }
 
 AST *statement(LexTokenStream *s, SymTable *scope) {
@@ -360,13 +398,22 @@ AST *statement(LexTokenStream *s, SymTable *scope) {
         case TOK_KLONG:
         case TOK_KSHORT:
             return vardecl(s, scope);
-        case TOK_IDENT: return varassign(s, scope);
+        case TOK_IDENT: {
+            if (lex_peek_n(s, 2)->type == TOK_OPAREN) {
+                return funccall(s, scope);
+            } else if (lex_peek_n(s, 2)->type == TOK_ASSIGN) {
+                return varassign(s, scope);
+            } else {
+                fprintf(stderr, "Ln %d: Syntax error, expected () or =, got %s\n", lex_peek_n(s, 2)->linenum, toktostr(lex_peek_n(s, 2)->type));
+                exit(1);
+            }
+        }
         case TOK_KPRINT: return printsmt(s, scope);
         case TOK_KIF: return ifsmt(s, scope);
         case TOK_KWHILE: return whilesmt(s, scope);
         case TOK_KFOR: return forsmt(s, scope);
         default:
-            fprintf(stderr, "Syntax error, token %s\n", toktostr(lex_peek(s)->type));
+            fprintf(stderr, "Ln %d: Syntax error, token %s\n", lex_peek(s)->linenum, toktostr(lex_peek(s)->type));
             exit(1);
     }
 }
@@ -381,51 +428,16 @@ AST *func_def(LexTokenStream *s, SymTable *scope) {
     AST **children = malloc(sizeof(AST*));
     children[0] = body;
 
-    size_t sym = sym_new(scope, t->str, asttovar(AST_KVOID), S_FUNC, 0);
-    return ast_construct(children, 1, AST_FUNC, sym);
+    Symbol *sym = sym_new(scope, t->str, asttovar(AST_KVOID), S_FUNC, 0);
+    return ast_construct(children, 1, AST_FUNC, sym->ident, VAR_NONE);
 }
 
-/*
-ASTList ASTstatements(LexTokenStream *s, SymTable *scope) {
-    ASTList smts;
-    ast_list_init(&smts);
-    while (1) {
-        AST *a = statement(s, scope);
-        printf("statements: %s\n", toktostr(lex_peek(s)->type));
-        if (a != NULL) {
-            ast_list_append(&smts, a);
-        }
-        if (a->type == AST_KPRINT || a->type == AST_ASSIGN) {
-            lex_consume_assert(s, TOK_SEMICOLON);
-        }
-        if (lex_peek(s)->type == TOK_EOF) {
-            return smts;
-        }
-    }
-}
-*/
 int ast_gen(AST *ast, LexTokenStream *s, SymTable *scope) {
     AST *a = func_def(s, scope);
     *ast = *a;
     free(a);
     return 0;
 }
-/*    s->pos = s->start;
-    sym_init(scope, NULL);
-    ASTList exprast = ASTstatements(s, scope);
-
-    AST a;
-    a.children = exprast.smts;
-    a.children_n = exprast.pos;
-    a.type = AST_PROG;
-    a.i = 0;
-    *ast = a;
-
-    //TODO manage memory of scope
-
-    return 0;
-}
-*/
 
 const char *asttypetostr(ASTType ty) {
     switch (ty) {
@@ -476,6 +488,7 @@ const char *asttypetostr(ASTType ty) {
         case AST_PROG:       return "AST_PROG      ";
         case AST_KPRINT:     return "AST_KPRINT    ";
         case AST_FUNC:       return "AST_FUNC      ";
+        case AST_FUNCCALL:   return "AST_FUNCCALL  ";
     }
     return "(AST TOKEN NOT RECOGNISED)";
 }

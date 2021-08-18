@@ -90,7 +90,7 @@ Error read_until_closing(LexTokenStream *input, LexTokenStream *out) {
     if (t->type == TOK_EOF) {
         return error_construct(1, "Error: unclosed #if");
     }
-    lex_append_token(out, (LexToken){NULL, 0, TOK_EOF});
+    lex_append_token(out, (LexToken){NULL, 0, TOK_EOF, -1});
     return (Error){0, NULL};
 }
 
@@ -160,8 +160,8 @@ Error preprocess_tokens_internal(LexTokenStream *input, StrMap *defines) {
                 lex_init(&s);
                 Reader r;
                 reader_construct_from(&r, found);
-                lex_tokenise_line(&r, &s);
-                lex_append_token(&s, (LexToken){NULL, 0, TOK_EOF});
+                lex_tokenise_line(&r, &s, -1);
+                lex_append_token(&s, (LexToken){NULL, 0, TOK_EOF, -1});
                 s.pos = s.start;
                 //lex_print_tokens(&s);
                 LexToken *t = lex_peek(&s);
@@ -183,7 +183,7 @@ Error preprocess_tokens_internal(LexTokenStream *input, StrMap *defines) {
         }
     }
     lex_free(input);
-    lex_append_token(&out, (LexToken){NULL, 0, TOK_EOF});
+    lex_append_token(&out, (LexToken){NULL, 0, TOK_EOF, -1});
     input->start = out.start;
     input->pos = out.start;
     input->capacity = out.capacity;

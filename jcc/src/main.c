@@ -7,13 +7,7 @@
 #include "../include/parser.h"
 #include "../include/codegen.h"
 #include "../include/args.h"
-
-void sym_init(SymTable *t, SymTable *outer) {
-    t->pos = 0;
-    t->capacity = 64;
-    t->outer = outer;
-    t->symbols = malloc(sizeof(Symbol) * 64);
-}
+#include "../include/symtable.h"
 
 int main(int argc, char **argv) {
     Args args = parse_args(argc, argv);

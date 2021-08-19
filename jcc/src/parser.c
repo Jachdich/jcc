@@ -1,5 +1,6 @@
 #include "../include/parser.h"
 #include "../include/lexer.h"
+#include "../include/symtable.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -56,36 +57,6 @@ VarType asttovar(ASTType ty) {
     }
 }
 
-Symbol *sym_new(SymTable *t, char *name, VarType type, int stype, int init_val) {
-    if (t->pos >= t->capacity) {
-        t->symbols = realloc(t->symbols, sizeof(Symbol) * (t->capacity *= 2));
-    }
-    Symbol s;
-    s.s = name;
-    s.ident = t->pos;
-    s.ty = type;
-    s.stype = stype;
-    s.init_value = init_val;
-    t->symbols[t->pos++] = s;
-    return t->symbols + t->pos - 1;
-}
-
-Symbol *sym_find_from_str(SymTable *t, char *name) {
-    for (size_t i = 0; i < t->pos; i++) {
-        if (strcmp(name, t->symbols[i].s) == 0) {
-            return t->symbols + i;
-        }
-    }
-    return NULL;
-}
-
-void sym_free(SymTable *t) {
-    free(t->symbols);
-    if (t->outer != NULL) {
-        sym_free(t->outer);
-    }
-}
-
 AST *ast_construct(AST **children, size_t children_n, ASTType type, size_t i, VarType ty) {
     AST *ast = malloc(sizeof(AST));
     ast->children = children;
@@ -93,6 +64,13 @@ AST *ast_construct(AST **children, size_t children_n, ASTType type, size_t i, Va
     ast->type = type;
     ast->i = i;
     ast->vartype = ty;
+    ast->scope = NULL;
+    return ast;
+}
+
+AST *ast_construct_with_scope(AST **children, size_t children_n, ASTType type, size_t i, VarType ty, SymTable *t) {
+    AST *ast = ast_construct(children, children_n, type, i, ty);
+    ast->scope = t;
     return ast;
 }
 
@@ -152,7 +130,7 @@ AST *vardecl(LexTokenStream *s, SymTable *scope) {
     case TOK_KLONG:
     case TOK_KSHORT: {
         LexToken *t = lex_consume_assert(s, TOK_IDENT);
-        Symbol *sym = sym_new(scope, t->str, asttovar(lextoast(tok->type)), S_VAR, 0);
+        Symbol *sym = sym_stack_new(scope, t->str, asttovar(lextoast(tok->type)));
         AST *child1 = ast_construct(NULL, 0, AST_LVIDENT, sym->ident, VAR_NONE);
         LexToken *t2 = lex_consume(s);
         if (t2->type != TOK_ASSIGN) {
@@ -280,23 +258,27 @@ void ast_list_init(ASTList *l) {
 }
 AST *statement(LexTokenStream *s, SymTable *scope);
 
-AST *compoundsmt(LexTokenStream *s, SymTable *scope) {
+AST *compoundsmt(LexTokenStream *s, SymTable *scope, int is_func) {
     lex_consume_assert(s, TOK_OBRACE);
     LexToken *t;
     ASTList lst;
     ast_list_init(&lst);
+
+    SymTable *tab = malloc(sizeof(*tab));
+    sym_init(tab, scope);
+    tab->base_func_table = is_func;
     
     while ((t = lex_peek(s))->type != TOK_CBRACE) {
-        AST *a = statement(s, scope);
+        AST *a = statement(s, tab);
         if (a != NULL) {
             ast_list_append(&lst, a);
-        }
-        if (a->type == AST_KPRINT || a->type == AST_ASSIGN || a->type == AST_FUNCCALL) {
-            lex_consume_assert(s, TOK_SEMICOLON);
+            if (a->type == AST_KPRINT || a->type == AST_ASSIGN || a->type == AST_FUNCCALL) {
+                lex_consume_assert(s, TOK_SEMICOLON);
+            }
         }
     }
     lex_consume_assert(s, TOK_CBRACE);
-    return ast_construct(lst.smts, lst.pos, AST_PROG, 0, VAR_NONE);
+    return ast_construct_with_scope(lst.smts, lst.pos, AST_PROG, 0, VAR_NONE, tab);
 }
 
 AST *ifsmt(LexTokenStream *s, SymTable *scope) {
@@ -304,14 +286,14 @@ AST *ifsmt(LexTokenStream *s, SymTable *scope) {
     lex_consume_assert(s, TOK_OPAREN);
     AST *a = expr(s, scope);
     lex_consume_assert(s, TOK_CPAREN);
-    AST *b = compoundsmt(s, scope);
+    AST *b = compoundsmt(s, scope, 0);
     AST *c = NULL;
     if (lex_peek(s)->type == TOK_KELSE) {
         lex_consume_assert(s, TOK_KELSE);
         if (lex_peek(s)->type == TOK_KIF) {
             c = ifsmt(s, scope);
         } else {
-            c = compoundsmt(s, scope);
+            c = compoundsmt(s, scope, 0);
         }
     }
     int cn = 2;
@@ -331,7 +313,7 @@ AST *whilesmt(LexTokenStream *s, SymTable *scope) {
     lex_consume_assert(s, TOK_OPAREN);
     AST *a = expr(s, scope);
     lex_consume_assert(s, TOK_CPAREN);
-    AST *b = compoundsmt(s, scope);
+    AST *b = compoundsmt(s, scope, 0);
     AST **children = malloc(sizeof(AST*) * 2);
     children[0] = a;
     children[1] = b;
@@ -349,7 +331,7 @@ AST *forsmt(LexTokenStream *s, SymTable *scope) {
     printf("for no2\n");
     AST *iter = statement(s, scope);
     lex_consume_assert(s, TOK_CPAREN);
-    AST *body = compoundsmt(s, scope);
+    AST *body = compoundsmt(s, scope, 0);
 
     AST **ch1 = malloc(sizeof(AST*) * 2);
     AST **ch2 = malloc(sizeof(AST*) * 2);
@@ -423,7 +405,7 @@ AST *func_def(LexTokenStream *s, SymTable *scope) {
     LexToken *t = lex_consume_assert(s, TOK_IDENT);
     lex_consume_assert(s, TOK_OPAREN);
     lex_consume_assert(s, TOK_CPAREN);
-    AST *body = compoundsmt(s, scope);
+    AST *body = compoundsmt(s, scope, 1);
 
     AST **children = malloc(sizeof(AST*));
     children[0] = body;

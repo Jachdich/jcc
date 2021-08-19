@@ -1,13 +1,9 @@
-void m() {
-    int i;
-}
-
-void printshit() {
-    print i;
-}
-
 void _start() {
-    for (i = 0; i < 100; i = i + 1) {
-        printshit();
+    int a = 3;
+    if (a == 3) {
+        int b = 5;
+        print b;
+        print a;
     }
+    print a;
 }

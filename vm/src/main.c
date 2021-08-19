@@ -2,29 +2,15 @@
 #include <stdio.h>
 #include <stdint.h>
 
-struct Reg {
-    union {
-        char *ptr;
-        int i;
-    };
-};
-
-enum {
-    FLAG_CARRY,
-    FLAG_ZERO,
-    FLAG_NCARRY,
-    FLAG_NZERO,
-};
+#define SP_POS 16
+#define BP_POS 17
 
 struct Machine {
-    //struct Reg regs[16];
-    int32_t regs[16];
+    int32_t regs[18];
     int flags[4];
     int retstk[256];
     int pcsp;
     int pc;
-    int sp;
-    int bp;
 };
 
 struct Instruction {
@@ -38,51 +24,6 @@ struct Instruction {
         int16_t arg23;
     };
 };
-/*
-
-0 mov r{arg1} -> r{arg2}
-1 movi {arg2 | arg3 << 8} -> r{arg1}
-2 jcr cond{arg1}, {arg2 | arg3 << 8}
-3 jr {arg2 | arg3 << 8}
-4 out r{arg1}
-
-5 add r{arg1}, r{arg2} -> r{arg3}
-6 addi r{arg1}, {arg2 | arg3 << 8} -> r{arg1}
-
-7 sub r{arg1}, r{arg2} -> r{arg3}
-8 subi r{arg1}, {arg2 | arg3 << 8} -> r{arg1}
-
-9 mul r{arg1}, r{arg2} -> r{arg3}
-a muli r{arg1}, {arg2 | arg3 << 8} -> r{arg1}
-
-b div r{arg1}, r{arg2} -> r{arg3}
-c divi r{arg1}, {arg2 | arg3 << 8} -> r{arg1}
-
-d mod r{arg1}, r{arg2} -> r{arg3}
-e modi r{arg1}, {arg2 | arg3 << 8} -> r{arg1}
-
-f movl {next qword} -> r{arg1}
-
-10 halt
-
-
-0f 00 00 00
-7f ff ff ff
-00 00 01 00
-01 02 02 00
-0c 00 02 00
-06 00 02 00
-0d 01 02 03
-02 01 ff ff
-09 02 01 03
-02 01 04 00
-01 00 01 00
-04 00 00 00
-03 00 03 00
-01 00 00 00
-04 00 00 00
-10 00 00 00
-*/
 
 const char *op_name(uint8_t op) {
     switch (op) {
@@ -117,6 +58,8 @@ const char *op_name(uint8_t op) {
         case 0x1C: return "free ";
         case 0x1D: return "drefr";
         case 0x1E: return "drefw";
+        case 0x1F: return "push ";
+        case 0x20: return "pop  ";
     }
     return "Invalid opcode";
 }
@@ -227,6 +170,20 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
                 }
                 break;
             }
+            case 0x1F:
+                if (m->regs[SP_POS] & 0x80000000) {
+                    *(uint32_t*)((size_t)m->regs[SP_POS]++ & 0x7FFFFFFF) = m->regs[instr.arg1];
+                } else {
+                    *(uint32_t*)((uint8_t*)stream + m->regs[SP_POS]++) = m->regs[instr.arg1];
+                }
+                break;
+            case 0x20:
+                if (m->regs[SP_POS] & 0x80000000) {
+                    m->regs[instr.arg1] = *(uint32_t*)((size_t)--m->regs[SP_POS] & 0x7FFFFFFF);
+                } else {
+                    m->regs[instr.arg1] = *(uint32_t*)((uint8_t*)stream + --m->regs[SP_POS]);
+                }
+                break;
             default:
                 printf("Error: unrecognised opcode %02x\n", instr.opcode);
                 exit(0);
@@ -253,10 +210,17 @@ int main(int argc, char **argv) {
 
     struct Instruction *instrs = (struct Instruction *)contents;
     size_t ninstr = fsize / sizeof(struct Instruction);
+
+    uint8_t *stack = malloc(4096);
+    
     struct Machine m;
     for (uint8_t i = 0; i < 16; i++) {
         m.regs[i] = 0;
     }
+    m.regs[SP_POS] = (size_t)stack | 0x80000000;
+    m.regs[BP_POS] = m.regs[SP_POS];
     run(&m, instrs, ninstr);
+    free(contents);
+    free(stack);
     return 0;
 }

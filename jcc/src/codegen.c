@@ -119,32 +119,53 @@ int cgloadint(int val, CGState *state) {
     return reg;
 }
 
-void cgprintint(CGState *state, int reg) {
+int cgprintint(CGState *state, int reg) {
     state_alloc_atleast(state, 6 + REGSTRLEN);
     state->code_len += sprintf(state->code + state->code_len, "\tout\t%s\n", state->reg_names[reg]);
     reg_free(state, reg);
+    return -1;
 }
 
-void cgstoreglob(CGState *state, int reg, char *ident) {
-    state_alloc_atleast(state, 12 + REGSTRLEN + MAXINTSTRLEN);
+int cgstoreglob(CGState *state, int reg, char *ident) {
+    state_alloc_atleast(state, 12 + REGSTRLEN + strlen(ident));
     state->code_len += sprintf(state->code + state->code_len, "\tmovra\t%s -> %s\n", state->reg_names[reg], ident);
     reg_free(state, reg);
+    return -1;
 }
 
 int cgloadglob(CGState *state, char *ident) {
     int reg = reg_alloc(state);
-    state_alloc_atleast(state, 12 + REGSTRLEN + MAXINTSTRLEN);
+    state_alloc_atleast(state, 12 + REGSTRLEN + strlen(ident));
     state->code_len += sprintf(state->code + state->code_len, "\tmovar\t%s -> %s\n", ident, state->reg_names[reg]);
     return reg;
 }
 
-char *sym_find(SymTable *table, size_t ident) {
-    for (size_t i = 0; i < table->pos; i++) {
-        if (table->symbols[i].ident == ident) {
-            return table->symbols[i].s;
-        }
-    }
-    return NULL;
+int cgloadlocal(CGState *state, char *ident) {
+    int reg = reg_alloc(state);
+    int temp = reg_alloc(state);
+    int offset = sym_find_from_str(state->table, ident)->stack_offset;
+    printf("Loading local %s offset %d\n", ident, offset);
+
+    state_alloc_atleast(state, 34 + REGSTRLEN * 4 + MAXINTSTRLEN);
+    state->code_len += sprintf(state->code + state->code_len, "\tmov\trbp -> %s\n", state->reg_names[temp]);
+    state->code_len += sprintf(state->code + state->code_len, "\taddi\t%s, %d\n", state->reg_names[temp], offset);
+    state->code_len += sprintf(state->code + state->code_len, "\tdrefr\t%s -> %s\n", state->reg_names[temp], state->reg_names[reg]);
+    reg_free(state, temp);
+    return reg;
+}
+
+int cgstorelocal(CGState *state, int reg, char *ident) {
+    int temp = reg_alloc(state);
+    int offset = sym_find_from_str(state->table, ident)->stack_offset;
+    printf("Storing local %s offset %d\n", ident, offset);
+
+    state_alloc_atleast(state, 34 + REGSTRLEN * 4 + MAXINTSTRLEN);
+    
+    state->code_len += sprintf(state->code + state->code_len, "\tmov\trbp -> %s\n", state->reg_names[temp]);
+    state->code_len += sprintf(state->code + state->code_len, "\taddi\t%s, %d\n", state->reg_names[temp], offset);
+    state->code_len += sprintf(state->code + state->code_len, "\tdrefw\t%s -> %s\n", state->reg_names[reg], state->reg_names[temp]);
+    reg_free(state, temp);
+    return -1;
 }
 
 int gen_ast(AST *ast, CGState *state, int reg);
@@ -202,25 +223,45 @@ int cgwhile(CGState *state, AST *ast) {
 
 int cgfunc(CGState *state, AST *ast) {
     size_t ident = ast->i;
-    char *label = state->table->symbols[ident].s;
-    state_alloc_atleast(state, 2 + sizeof(label));
-    state->code_len += sprintf(state->code + state->code_len, "%s:\n", label);
+    char *label = sym_find(state->table, ident);
+    int num_vars = ast->children[0]->scope->curr_stack_offset;
+    state_alloc_atleast(state, 40 + strlen(label) + MAXINTSTRLEN);
+    state->code_len += sprintf(state->code + state->code_len, "%s:\n\tpush\trbp\n\tmov\trsp -> rbp\n\taddi\trsp, %d\n", label, num_vars);
 
     gen_ast(ast->children[0], state, -1);
 
-    state_alloc_atleast(state, 5);
-    state->code_len += sprintf(state->code + state->code_len, "\tret\n");
+    state_alloc_atleast(state, 26 + MAXINTSTRLEN);
+    state->code_len += sprintf(state->code + state->code_len, "\tsubi\trsp, %d\n\tpop\trbp\n\tret\n", num_vars);
     return -1;
 }
 
 int cgfunccall(CGState *state, int ident) {
-    char *label = state->table->symbols[ident].s;
+    char *label = sym_find(state->table, ident);
     state_alloc_atleast(state, 7 + strlen(label));
     state->code_len += sprintf(state->code + state->code_len, "\tcall\t%s\n", label);
     return -1;
 }
 
 int gen_ast(AST *ast, CGState *state, int reg) {
+    SymTable *tab = ast->scope;
+    SymTable *orig = state->table;
+    printf("\n\nUsing table:\n");
+    SymTable *t = tab;
+    int i = 0;
+    while (t != NULL) {
+        for (size_t a = 0; a < t->pos; a++) {
+            for (int b = 0; b < i; b++) {
+                printf("    ");
+            }
+            printf("%lu: %s\n", t->symbols[a].ident, t->symbols[a].s);
+        }
+        t = t->outer;
+        i++;
+    }
+    if (tab != NULL) {
+        state->table = tab;
+    }
+    
     switch(ast->type) {
         case AST_KIF:
             return cgif(state, ast);
@@ -254,8 +295,8 @@ int gen_ast(AST *ast, CGState *state, int reg) {
         case AST_LT:     res = cgmathop(ch_regs[0], ch_regs[1], CG_LT, state); break;
         case AST_LTE:    res = cgmathop(ch_regs[0], ch_regs[1], CG_LTE, state); break;
         case AST_INT_LIT:res = cgloadint(ast->i, state); break;
-        case AST_IDENT:  res = cgloadglob(state, sym_find(state->table, ast->i)); break;
-        case AST_LVIDENT:cgstoreglob(state, reg, sym_find(state->table, ast->i)); break;
+        case AST_IDENT:  res = cgloadlocal(state, sym_find(state->table, ast->i)); break;
+        case AST_LVIDENT:cgstorelocal(state, reg, sym_find(state->table, ast->i)); break;
         case AST_ASSIGN: res = ch_regs[0]; break;
         case AST_KPRINT: cgprintint(state, ch_regs[0]); break;
         case AST_FUNCCALL: res = cgfunccall(state, ast->i); break;
@@ -268,6 +309,7 @@ int gen_ast(AST *ast, CGState *state, int reg) {
     if (ast->children_n > 0) {
         free(ch_regs);
     }
+    state->table = orig;
     return res;
 }
 

@@ -15,6 +15,12 @@ debug: jcc
 run: jcc
 	./jcc test.jc
 
+runprog: jcc test.jc
+	./jcc -o test.asm test.jc
+	jas test.asm -o test.o
+	jld test.o -o test
+	jvm test
+
 clean:
 	rm obj/*.o
 	rm jcc

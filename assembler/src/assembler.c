@@ -18,6 +18,22 @@ int isnum(char c) {
     return c <= '9' && c >= '0';
 }
 
+//compare two strings until one of them encounters a "seperator" character
+int strsepcmp(char *a, char *b) {
+    while (!issep(*a) && !issep(*b) && *b != 0 && *a != 0) {
+        if (*a != *b) {
+            return 1;
+        }
+        a++;
+        b++;
+    }
+    if ((issep(*a) || *a == 0) != (issep(*b) || *b == 0)) {
+        return 1;
+    }
+    return 0;
+}
+
+
 int is_intlit(char *str) {
     if (!isnum(*str)) return 0;
     while (!issep(*str) && *str != 0) {
@@ -28,6 +44,9 @@ int is_intlit(char *str) {
 }
 
 int is_reg(char *str) {
+    if ((strsepcmp(str, "rsp") == 0) || (strsepcmp(str, "rbp") == 0)) {
+        return 1;
+    }
     if (*str != 'r') return 0;
     str++;
     return is_intlit(str);
@@ -48,37 +67,39 @@ uint8_t get_opcode(char **str) {
     //(*str)++;
     while (issep(**str)) (*str)++;
     //printf("%s\n", init);
-    if (strncmp(init, "mov", sz)  == 0) return 0x00;
+    if (strncmp(init, "mov",  sz)  == 0) return 0x00;
     if (strncmp(init, "movi", sz) == 0) return 0x01;
-    if (strncmp(init, "jz", sz)   == 0) return 0x02;
-    if (strncmp(init, "jp", sz)   == 0) return 0x03;
-    if (strncmp(init, "out", sz)  == 0) return 0x04;
-    if (strncmp(init, "add", sz)  == 0) return 0x05;
+    if (strncmp(init, "jz",   sz) == 0) return 0x02;
+    if (strncmp(init, "jp",   sz) == 0) return 0x03;
+    if (strncmp(init, "out",  sz) == 0) return 0x04;
+    if (strncmp(init, "add",  sz) == 0) return 0x05;
     if (strncmp(init, "addi", sz) == 0) return 0x06;
-    if (strncmp(init, "sub", sz)  == 0) return 0x07;
+    if (strncmp(init, "sub",  sz) == 0) return 0x07;
     if (strncmp(init, "subi", sz) == 0) return 0x08;
-    if (strncmp(init, "mul", sz)  == 0) return 0x09;
+    if (strncmp(init, "mul",  sz) == 0) return 0x09;
     if (strncmp(init, "muli", sz) == 0) return 0x0a;
-    if (strncmp(init, "div", sz)  == 0) return 0x0b;
+    if (strncmp(init, "div",  sz) == 0) return 0x0b;
     if (strncmp(init, "divi", sz) == 0) return 0x0c;
-    if (strncmp(init, "mod", sz)  == 0) return 0x0d;
+    if (strncmp(init, "mod",  sz) == 0) return 0x0d;
     if (strncmp(init, "modi", sz) == 0) return 0x0e;
     if (strncmp(init, "movl", sz) == 0) return 0x0f;
     if (strncmp(init, "halt", sz) == 0) return 0x10;
     if (strncmp(init, "call", sz) == 0) return 0x11;
-    if (strncmp(init, "ret", sz)  == 0) return 0x12;
+    if (strncmp(init, "ret",  sz) == 0) return 0x12;
     if (strncmp(init, "movra",sz) == 0) return 0x13;
     if (strncmp(init, "movar",sz) == 0) return 0x14;
-    if (strncmp(init, "jnz", sz)  == 0) return 0x15;
-    if (strncmp(init, "cmp", sz)  == 0) return 0x16;
-    if (strncmp(init, "lt", sz)   == 0) return 0x17;
-    if (strncmp(init, "lte", sz)  == 0) return 0x18;
-    if (strncmp(init, "gt", sz)   == 0) return 0x19;
-    if (strncmp(init, "gte", sz)  == 0) return 0x1A;
+    if (strncmp(init, "jnz",  sz) == 0) return 0x15;
+    if (strncmp(init, "cmp",  sz) == 0) return 0x16;
+    if (strncmp(init, "lt",   sz) == 0) return 0x17;
+    if (strncmp(init, "lte",  sz) == 0) return 0x18;
+    if (strncmp(init, "gt",   sz) == 0) return 0x19;
+    if (strncmp(init, "gte",  sz) == 0) return 0x1A;
     if (strncmp(init, "alloc",sz) == 0) return 0x1B;
     if (strncmp(init, "free", sz) == 0) return 0x1C;
     if (strncmp(init, "drefr",sz) == 0) return 0x1D;
     if (strncmp(init, "drefw",sz) == 0) return 0x1E;
+    if (strncmp(init, "push", sz) == 0) return 0x1F;
+    if (strncmp(init, "pop",  sz) == 0) return 0x20;
     printf("Unknown opcode %s\n", init);
     return -1;
 }
@@ -96,21 +117,6 @@ char *read_label(char **str) {
     } else {
         return NULL;
     }
-}
-
-//compare two strings until one of them encounters a "seperator" character
-int strsepcmp(char *a, char *b) {
-    while (!issep(*a) && !issep(*b) && *b != 0 && *a != 0) {
-        if (*a != *b) {
-            return 1;
-        }
-        a++;
-        b++;
-    }
-    if ((issep(*a) || *a == 0) != (issep(*b) || *b == 0)) {
-        return 1;
-    }
-    return 0;
 }
 
 const char *argtypetostr(ArgType ty) {
@@ -131,12 +137,19 @@ Arg *read_args(char *str) {
     posargs[2] = (Arg){0, NULL, AT_NONE};
     if (*str == 0) { return posargs; }
     for (int i = 0; i < 3; i++) {
-        //printf("It's a str: %s\n", str);
         if (is_reg(str)) {
-            str++;
-            posargs[i].i = 0;
-            while (*str >= '0' && *str <= '9') {
-                posargs[i].i = posargs[i].i * 10 + *str++ - '0';
+            if (strsepcmp(str, "rsp") == 0) {
+                str += 3;
+                posargs[i].i = 16;
+            } else if (strsepcmp(str, "rbp") == 0) {
+                str += 3;
+                posargs[i].i = 17;
+            } else {
+                str++;
+                posargs[i].i = 0;
+                while (*str >= '0' && *str <= '9') {
+                    posargs[i].i = posargs[i].i * 10 + *str++ - '0';
+                }
             }
             posargs[i].t = AT_REG;
         } else if (is_intlit(str)) {
@@ -156,7 +169,7 @@ Arg *read_args(char *str) {
                 posargs[i].t = AT_LABEL;
             }
         }
-        
+
         while (iswhite(*str)) { str++; }
         if (*str == ',') {
             str++;
@@ -244,6 +257,8 @@ int args_match(uint8_t opcode, Arg *args, int linenum, char *line) {
         case 0x1C: return args_assert(args, AT_REG,   AT_NONE,  AT_NONE, linenum, line);
         case 0x1D: return args_assert(args, AT_REG,   AT_REG,   AT_NONE, linenum, line);
         case 0x1E: return args_assert(args, AT_REG,   AT_REG,   AT_NONE, linenum, line);
+        case 0x1F: return args_assert(args, AT_REG,   AT_NONE,  AT_NONE, linenum, line);
+        case 0x20: return args_assert(args, AT_REG,   AT_NONE,  AT_NONE, linenum, line);
         default:
             fprintf(stderr, "Bug: Unrecognised opcode %02x\n", opcode);
             return 0;
@@ -333,7 +348,6 @@ size_t resolve_symbols(Instr *instrs, size_t num_instrs, struct LinkTable *table
         Instr in = instrs[i];
         for (int lp = 0; lp < in.num_labels_at; lp++) {
             table->res_syms[table->res_pos] = in.labels_at[lp];
-            printf("LABELS AT lp %d = %s\n", lp, in.labels_at[lp]);
             table->locs[table->res_pos] = curr_pos;
             table->res_pos += 1;
             if (table->res_pos >= table->res_cap) {
@@ -444,6 +458,8 @@ size_t reorder_args(uint8_t **code_ptr, Instr *instrs, size_t num_instrs, size_t
                 case 0x1C: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0;  break;
                 case 0x1D: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = 0;  break;
                 case 0x1E: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = 0;  break;
+                case 0x1F: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0;  break;
+                case 0x20: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0;  break;
                 default: break;
             }
         }

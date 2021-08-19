@@ -1,11 +1,7 @@
-void asdf2() {
-    print 2;
-}
-
-void asdf() {
-    print 1;
-}
-
 void _start() {
-    asdf();
+    int a = 3;
+    if (a == 3) {
+        int b;
+        print a;
+    }
 }

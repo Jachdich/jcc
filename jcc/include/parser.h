@@ -1,7 +1,8 @@
 #ifndef __PARSER_H
 #define __PARSER_H
 #include "../include/lexer.h"
-
+struct SymTable;
+typedef struct SymTable SymTable;
 struct AST;
 typedef struct AST AST;
 
@@ -77,8 +78,6 @@ enum {
 
 typedef enum ASTType ASTType;
 typedef enum VarType VarType;
-typedef struct Symbol Symbol;
-typedef struct SymTable SymTable;
 
 struct AST {
     AST **children;
@@ -86,21 +85,7 @@ struct AST {
     ASTType type;
     size_t i;
     VarType vartype;
-};
-
-struct Symbol {
-    char *s;
-    VarType ty;
-    size_t ident;
-    int stype;
-    int init_value;
-};
-
-struct SymTable {
-    SymTable *outer;
-    Symbol *symbols;
-    size_t capacity;
-    size_t pos;
+    SymTable *scope;
 };
 
 int ast_gen(AST * ast, LexTokenStream *s, SymTable *scope);

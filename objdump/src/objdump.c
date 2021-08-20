@@ -32,6 +32,12 @@ const char *op_name(uint8_t op) {
         case 0x18: return "lte";
         case 0x19: return "gt";
         case 0x1A: return "gte";
+        case 0x1B: return "alloc";
+        case 0x1C: return "free";
+        case 0x1D: return "drefr";
+        case 0x1E: return "drefw";
+        case 0x1F: return "push";
+        case 0x20: return "pop";
     }
     return "Invalid opcode";
 }
@@ -49,15 +55,15 @@ void format_args(uint8_t op, uint8_t a, uint8_t b, uint8_t c, uint32_t q, uint32
         case 0x03:  printf("%d\n", q); break;
         case 0x04:  printf("r%d\n", a); break;
         case 0x05:  printf("r%d, r%d -> r%d\n", a, b, c); break;
-        case 0x06:  printf("r%d, %d", a, (b | c << 8)); break;
+        case 0x06:  printf("r%d, %d\n", a, (b | c << 8)); break;
         case 0x07:  printf("r%d, r%d -> r%d\n", a, b, c); break;
-        case 0x08:  printf("r%d, %d", a, (b | c << 8)); break;
+        case 0x08:  printf("r%d, %d\n", a, (b | c << 8)); break;
         case 0x09:  printf("r%d, r%d -> r%d\n", a, b, c); break;
-        case 0x0a:  printf("r%d, %d", a, (b | c << 8)); break;
+        case 0x0a:  printf("r%d, %d\n", a, (b | c << 8)); break;
         case 0x0b:  printf("r%d, r%d -> r%d\n", a, b, c); break;
-        case 0x0c:  printf("r%d, %d", a, (b | c << 8)); break;
+        case 0x0c:  printf("r%d, %d\n", a, (b | c << 8)); break;
         case 0x0d:  printf("r%d, r%d -> r%d\n", a, b, c); break;
-        case 0x0e:  printf("r%d, %d", a, (b | c << 8)); break;
+        case 0x0e:  printf("r%d, %d\n", a, (b | c << 8)); break;
         case 0x0f:  printf("%d -> r%d\n", q, a); break;
         case 0x10:  printf("\n"); break;
         case 0x11:  printf("%d\n", q); break;
@@ -70,6 +76,12 @@ void format_args(uint8_t op, uint8_t a, uint8_t b, uint8_t c, uint32_t q, uint32
         case 0x18:  printf("r%d, r%d -> r%d\n", a, b, c); break;
         case 0x19:  printf("r%d, r%d -> r%d\n", a, b, c); break;
         case 0x1A:  printf("r%d, r%d -> r%d\n", a, b, c); break;
+        case 0x1B:  printf("r%d\n", a); break;
+        case 0x1C:  printf("r%d\n", a); break;
+        case 0x1D:  printf("[r%d] -> r%d\n", a, b); break;
+        case 0x1E:  printf("r%d -> [r%d]\n", a, b); break;
+        case 0x1F:  printf("r%d\n", a); break;
+        case 0x20:  printf("r%d\n", a); break;
 
     }
 }

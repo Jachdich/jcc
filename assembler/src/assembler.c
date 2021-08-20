@@ -278,6 +278,8 @@ size_t gen_instrs(Reader *r, Instr **instrs_ptr) {
         char *line_init = malloc(strlen(line) + 1);
         strcpy(line_init, line);
         while (iswhite(*line) && *line != 0) line++;
+
+        if (*line == ';') continue;
         
         if (*line == 0) continue;
         char *lab = read_label(&line);

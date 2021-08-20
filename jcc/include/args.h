@@ -3,6 +3,7 @@
 
 struct Args {
     int status;
+    int debug;
     char *ifname;
     char *ofname;
 };

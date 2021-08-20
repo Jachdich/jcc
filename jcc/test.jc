@@ -1,7 +1,17 @@
+int glob = 32;
+
+void println(int n) {
+    print n;
+}
+
 void _start() {
+    print glob;
+    glob = 69;
     int a = 3;
     if (a == 3) {
-        int b;
+        int b = 32;
         print a;
+        print b;
     }
+    println(a);
 }

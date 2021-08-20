@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
     //printf("%s\n\n\n", preprocessed);
     reader_free(&r);
     if (preprocessed == NULL) {
-        printf("Some kind of error happened lol\n");
+        printf("Some kind of preprocessor error happened lol\n");
         return 1;
     }
 
@@ -77,22 +77,45 @@ int main(int argc, char **argv) {
             ast_free(&ast);
             return ast_err;
         }
+        if (ast.type != AST_INVALID) {
     
-        ast_print(&ast);
-        char *code;
-        cg_gen(&ast, &code, &table);
-        ast_free(&ast);
-        size_t clen = strlen(code);
-        if (code_len + clen >= code_cap) {
-            all_code = realloc(all_code, code_cap *= 2);
+            ast_print(&ast);
+            char *code;
+            cg_gen(&ast, &code, &table, args.debug);
+            ast_free(&ast);
+            size_t clen = strlen(code);
+            while (code_len + clen >= code_cap) {
+                all_code = realloc(all_code, code_cap *= 2);
+            }
+            memcpy(all_code + code_len, code, clen);
+            code_len += clen;
         }
-        memcpy(all_code + code_len, code, clen);
-        code_len += clen;
 
         if (lex_peek(&s)->type == TOK_EOF) {
             break;
         }
     }
+
+    char *defs = malloc(128);
+    size_t defs_len = 0;
+    size_t defs_cap = 128;
+
+    for (uint32_t i = 0; i < table.pos; i++) {
+        if (table.symbols[i].stype == S_VAR) {
+            size_t sz = 7 + strlen(table.symbols[i].s);
+            while (sz > defs_cap) {
+                defs = realloc(defs, defs_cap *= 2);
+            }
+            defs_len += sprintf(defs + defs_len, "%s: dd %d\n", table.symbols[i].s, table.symbols[i].init_value);
+        }
+    }
+
+    while (code_len + defs_len >= code_cap) {
+        all_code = realloc(all_code, code_cap *= 2);
+    }
+    memcpy(all_code + code_len, defs, defs_len);
+    code_len += defs_len;
+    free(defs);
 
     if (args.ofname == NULL) {
         printf("%s", all_code);

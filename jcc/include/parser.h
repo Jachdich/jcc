@@ -59,6 +59,7 @@ enum ASTType {
     AST_FUNC,
     AST_FUNCCALL,
     AST_ARGLIST,
+    AST_ARG,
 };
 
 enum VarType {

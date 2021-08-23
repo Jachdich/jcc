@@ -18,7 +18,7 @@ run: jcc
 runprog: jcc test.jc
 	./jcc -o test.asm test.jc
 	jas test.asm -o test.o
-	jld test.o -o test
+	jld test.o io.o -o test
 	jvm test
 
 clean:

@@ -64,15 +64,33 @@ const char *op_name(uint8_t op) {
     return "Invalid opcode";
 }
 
-void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
+const char reset[] = {0x1B, '[', '0', 'm', 0};
+const char underline[] = {0x1B, '[', '4','m', 0};
+const char invert[] = {0x1B, '[', '7','m', 0};
+
+void run(struct Machine *m, struct Instruction *stream, size_t ninstr, uint8_t *stack) {
     m->pc = 0;
     m->pcsp = 0;
     while ((unsigned)m->pc < ninstr) {
         struct Instruction instr = stream[m->pc++];
-        printf("Pc: %02x, Regs: %08x %08x %08x %08x, opcode: %s %02x, %02x, %02x (%04x) (next qword %08x instr %08x)\n",
+        printf("Pc: %02x, Regs: %08x %08x %08x %08x, opcode: %s %02x, %02x, %02x (%04x) (next qword %08x instr %08x) ",
                 m->pc, m->regs[0], m->regs[1], m->regs[2], m->regs[3],
                 op_name(instr.opcode), instr.arg1, instr.arg2, instr.arg3,
                 (signed)instr.arg23, *((int32_t*)(stream + m->pc)), *((int32_t*)(stream + m->pc)) / 4);
+
+        for (int i = 0; i < 32; i++) {
+            if (((size_t)(stack + i) | 0x80000000) == (unsigned)m->regs[SP_POS]) {
+                printf(underline);
+            }
+            if (((size_t)(stack + i) | 0x80000000) == (unsigned)m->regs[BP_POS]) {
+                printf(invert);
+            }
+            printf("%02x%s ", stack[i], reset);
+            if ((i + 1) % 4 == 0) {
+                printf(" ");
+            }
+        }
+        printf("\n");
 
         switch (instr.opcode) {
             case 0x00:
@@ -172,16 +190,20 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr) {
             }
             case 0x1F:
                 if (m->regs[SP_POS] & 0x80000000) {
-                    *(uint32_t*)((size_t)m->regs[SP_POS]++ & 0x7FFFFFFF) = m->regs[instr.arg1];
+                    *(uint32_t*)((size_t)m->regs[SP_POS] & 0x7FFFFFFF) = m->regs[instr.arg1];
+                    m->regs[SP_POS] += 4;
                 } else {
-                    *(uint32_t*)((uint8_t*)stream + m->regs[SP_POS]++) = m->regs[instr.arg1];
+                    *(uint32_t*)((uint8_t*)stream + m->regs[SP_POS]) = m->regs[instr.arg1];
+                    m->regs[SP_POS] += 4;
                 }
                 break;
             case 0x20:
                 if (m->regs[SP_POS] & 0x80000000) {
-                    m->regs[instr.arg1] = *(uint32_t*)((size_t)--m->regs[SP_POS] & 0x7FFFFFFF);
+                    m->regs[SP_POS] -= 4;
+                    m->regs[instr.arg1] = *(uint32_t*)((size_t)m->regs[SP_POS] & 0x7FFFFFFF);
                 } else {
-                    m->regs[instr.arg1] = *(uint32_t*)((uint8_t*)stream + --m->regs[SP_POS]);
+                    m->regs[SP_POS] -= 4;
+                    m->regs[instr.arg1] = *(uint32_t*)((uint8_t*)stream + m->regs[SP_POS]);
                 }
                 break;
             default:
@@ -219,7 +241,7 @@ int main(int argc, char **argv) {
     }
     m.regs[SP_POS] = (size_t)stack | 0x80000000;
     m.regs[BP_POS] = m.regs[SP_POS];
-    run(&m, instrs, ninstr);
+    run(&m, instrs, ninstr, stack);
     free(contents);
     free(stack);
     return 0;

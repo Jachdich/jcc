@@ -38,6 +38,8 @@ const char *op_name(uint8_t op) {
         case 0x1E: return "drefw";
         case 0x1F: return "push";
         case 0x20: return "pop";
+        case 0x21: return "movbp";
+        case 0x22: return "movpb";
     }
     return "Invalid opcode";
 }
@@ -48,6 +50,12 @@ int is_twobyte(uint8_t opcode) {
 
 void format_args(uint8_t op, uint8_t a, uint8_t b, uint8_t c, uint32_t q, uint32_t pos) {
     printf("%04x: \t%s\t", pos, op_name(op));
+    char sign = '+';
+    int16_t sn = (signed)(b | c << 8);
+    if (sn < 0) { 
+        sn = -sn;
+        sign = '-';
+    }
     switch (op) {
         case 0x00:  printf("r%d -> r%d\n", a, b); break;
         case 0x01:  printf("%d -> r%d\n", (b | c << 8), a); break;
@@ -82,6 +90,8 @@ void format_args(uint8_t op, uint8_t a, uint8_t b, uint8_t c, uint32_t q, uint32
         case 0x1E:  printf("r%d -> [r%d]\n", a, b); break;
         case 0x1F:  printf("r%d\n", a); break;
         case 0x20:  printf("r%d\n", a); break;
+        case 0x21:  printf("[rbp %c %d] -> r%d\n", sign, sn, a); break;
+        case 0x22:  printf("r%d -> [rbp %c %d]\n", a, sign, sn); break;
 
     }
 }

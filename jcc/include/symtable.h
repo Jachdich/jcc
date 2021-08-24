@@ -28,6 +28,7 @@ struct SymTable {
     size_t pos;
     size_t curr_stack_offset;
     int base_func_table;
+    int label_n;
 };
 
 void sym_init(SymTable *t, SymTable *outer);

@@ -18,8 +18,9 @@ struct CGState {
     char **reg_names;
     char **op_names;
     SymTable *table;
-    int label_ident;
     int debug;
+
+    char *func_ret_jump;
 };
 
 enum {
@@ -57,7 +58,11 @@ void state_alloc_atleast(CGState *s, size_t bytes) {
 
 char *state_gen_label(CGState *s) {
     char *res = malloc(8);
-    sprintf(res, "L%03d", s->label_ident++);
+    SymTable *st = s->table;
+    while (st->outer != NULL) {
+        st = st->outer;
+    }
+    sprintf(res, "L%03d", st->label_n++);
     return res;
 }
 
@@ -73,8 +78,8 @@ void state_init(CGState *s, size_t num_regs, char **reg_names, char **op_names, 
     s->code_capacity = 8;
     s->table = table;
     s->op_names = op_names;
-    s->label_ident = 0;
     s->debug = debug;
+    s->func_ret_jump = NULL;
 }
 
 void state_free(CGState *s) {
@@ -268,6 +273,7 @@ int cgwhile(CGState *s, AST *ast) {
 int cgfunc(CGState *s, AST *ast) {
     size_t ident = ast->i;
     char *label = sym_find(s->table, ident);
+    Symbol *sym = sym_find_from_str(s->table, label);
     int num_vars = ast->children[0]->scope->curr_stack_offset;
     state_alloc_atleast(s, 40 + strlen(label) + MAXINTSTRLEN);
     s->cl += sprintf(s->c + s->cl, "%s:\n\tpush\trbp\n\tmov\trsp -> rbp\n\taddi\trsp, %d\n", label, num_vars);
@@ -297,11 +303,21 @@ int cgfunc(CGState *s, AST *ast) {
     }
     reg_free(s, t1_r);
     //reg_free(s, t2_r);*/
+
+    s->func_ret_jump = state_gen_label(s);
     
     gen_ast(ast->children[1], s, -1);
 
-    state_alloc_atleast(s, 26 + MAXINTSTRLEN);
-    s->cl += sprintf(s->c + s->cl, "\tsubi\trsp, %d\n\tpop\trbp\n\tret\n", num_vars);
+    if (sym->ty != VAR_VOID) {
+        state_alloc_atleast(s, 32 + MAXINTSTRLEN + REGSTRLEN);
+        int reg = reg_alloc(s);
+        s->cl += sprintf(s->c + s->cl, "%s:\n\tpop\t%s\n\tsubi\trsp, %d\n\tpop\trbp\n\tpush\t%s\n\tret\n", s->func_ret_jump, s->reg_names[reg], num_vars, s->reg_names[reg]);
+        reg_free(s, reg);
+    } else {
+        state_alloc_atleast(s, 26 + MAXINTSTRLEN);
+        s->cl += sprintf(s->c + s->cl, "%s:\n\tsubi\trsp, %d\n\tpop\trbp\n\tret\n", s->func_ret_jump, num_vars);
+    }
+    s->func_ret_jump = NULL;
     return -1;
 }
 
@@ -330,8 +346,9 @@ int cgsetupargs(CGState *s, int *regs, size_t num) {
 }
 
 int cgret(CGState *s, int reg) {
-    state_alloc_atleast(s, 12 + REGSTRLEN);
-    s->cl += sprintf(s->c + s->cl, "\tpush\t%s\n\tret\n", s->reg_names[reg]);
+    state_alloc_atleast(s, 12 + REGSTRLEN + strlen(s->func_ret_jump));
+    s->cl += sprintf(s->c + s->cl, "\tpush\t%s\n", s->reg_names[reg]);
+    s->cl += sprintf(s->c + s->cl, "\tjp\t%s\n", s->func_ret_jump);
 }
 
 int gen_ast(AST *ast, CGState *state, int reg) {

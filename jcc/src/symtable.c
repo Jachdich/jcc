@@ -13,6 +13,7 @@ void sym_init(SymTable *t, SymTable *outer) {
     t->symbols = malloc(sizeof(Symbol) * 64);
     t->curr_stack_offset = 0;
     t->base_func_table = 0;
+    t->label_n = 0;
 }
 
 Symbol *sym_new(SymTable *t, char *name, VarType type, int stype, int init_val) {

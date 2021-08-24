@@ -6,9 +6,12 @@ add:
 	movbp	-12 -> r1
 	sub	r0, r1 -> r0
 	push	r0
-	ret
+	jp	L000
+L000:
+	pop	r1
 	subi	rsp, 8
 	pop	rbp
+	push	r1
 	ret
 _start:
 	push	rbp
@@ -26,7 +29,7 @@ _start:
 	push	r2
 	call	println
 	subi	rsp, 4
+L001:
 	subi	rsp, 0
 	pop	rbp
 	ret
-

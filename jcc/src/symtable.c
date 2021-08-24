@@ -1,4 +1,5 @@
 #include "../include/symtable.h"
+#include "../include/parser.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -29,6 +30,22 @@ Symbol *sym_new(SymTable *t, char *name, VarType type, int stype, int init_val) 
     return t->symbols + t->pos++;
 }
 
+Symbol *sym_func_new(SymTable *t, char *name, VarType type, struct FuncSig sig, int is_defined) {
+    if (t->pos >= t->capacity) {
+        t->symbols = realloc(t->symbols, sizeof(Symbol) * (t->capacity *= 2));
+    }
+    Symbol s;
+    s.s = name;
+    s.ident = glob_sym_counter++;
+    s.ty = type;
+    s.stype = S_FUNC;
+    s.init_value = is_defined;
+    s.is_stack = 0;
+    s.sig = sig;
+    t->symbols[t->pos] = s;
+    return t->symbols + t->pos++;
+}
+
 Symbol *sym_stack_new(SymTable *t, char *name, VarType type) {
     if (t->pos >= t->capacity) {
         t->symbols = realloc(t->symbols, sizeof(Symbol) * (t->capacity *= 2));
@@ -50,7 +67,7 @@ Symbol *sym_stack_new(SymTable *t, char *name, VarType type) {
         exit(1);
     }
     s.stack_offset = ft->curr_stack_offset;
-    ft->curr_stack_offset += 4;
+    ft->curr_stack_offset += varsize(type);
     
     t->symbols[t->pos] = s;
     return t->symbols + t->pos++;
@@ -77,6 +94,15 @@ Symbol *sym_find_from_str(SymTable *t, char *name) {
     }
     if (t->outer != NULL) {
         return sym_find_from_str(t->outer, name);
+    }
+    return NULL;
+}
+
+Symbol *sym_get(SymTable *t, char *name) {
+    for (size_t i = 0; i < t->pos; i++) {
+        if (strcmp(name, t->symbols[i].s) == 0) {
+            return t->symbols + i;
+        }
     }
     return NULL;
 }

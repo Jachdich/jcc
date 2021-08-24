@@ -57,6 +57,19 @@ VarType asttovar(ASTType ty) {
     }
 }
 
+int varsize(VarType ty) {
+    switch (ty) {
+        case VAR_INT: return 4;
+        case VAR_CHAR: return 1;
+        case VAR_STRUCT: return -1;
+        case VAR_VOID: return 0;
+        case VAR_ENUM: return 4;
+        case VAR_LONG: return 4;
+        case VAR_SHORT: return 1;
+        case VAR_NONE: return 0;
+    }
+}
+
 AST *ast_construct(AST **children, size_t children_n, ASTType type, size_t i, VarType ty) {
     AST *ast = malloc(sizeof(AST));
     ast->children = children;
@@ -90,13 +103,16 @@ VarType min_int_size(size_t i) {
 VarType combine_types(VarType a, VarType b) {
     if (a == VAR_VOID || b == VAR_VOID) {
         fprintf(stderr, "Error: void type expression used in expression\n");
-        exit(1);
+        //exit(1);
+        //cause a segfault so I can get a trace on what called this func
+        char *a = 0x0;
+        *a = 1;
     }
 
     //fuck off I'll fix it later
     return VAR_INT;
 }
-
+AST *funccall(LexTokenStream *s, SymTable *scope);
 AST *number(LexTokenStream *s, SymTable *scope) {
     LexTokenType type = lex_peek(s)->type;
     if (type == TOK_INT) {
@@ -105,6 +121,9 @@ AST *number(LexTokenStream *s, SymTable *scope) {
         
         return ast_construct(NULL, 0, AST_INT_LIT, tok->i, ty);
     } else if (type == TOK_IDENT) {
+        if (lex_peek_n(s, 2)->type == TOK_OPAREN) {
+            return funccall(s, scope);
+        }
         LexToken *tok = lex_consume(s);
         Symbol *s = sym_find_from_str(scope, tok->str);
         if (s == NULL) {
@@ -130,6 +149,10 @@ AST *localvardecl(LexTokenStream *s, SymTable *scope) {
     case TOK_KLONG:
     case TOK_KSHORT: {
         LexToken *t = lex_consume_assert(s, TOK_IDENT);
+        if (sym_get(scope, t->str) != NULL) {
+            fprintf(stderr, "Ln %d: Error: local variable '%s' redefined\n", t->linenum, t->str);
+            exit(1);
+        }
         Symbol *sym = sym_stack_new(scope, t->str, asttovar(lextoast(tok->type)));
         LexToken *t2 = lex_consume(s);
         if (t2->type != TOK_ASSIGN) {
@@ -168,7 +191,11 @@ AST *globvardef(LexTokenStream *s, SymTable *scope) {
     case TOK_KLONG:
     case TOK_KSHORT: {
         LexToken *t = lex_consume_assert(s, TOK_IDENT);
-        LexToken *t2 = lex_consume(s);
+        if (sym_get(scope, t->str) != NULL) {
+            fprintf(stderr, "Ln %d: Error: global variable '%s' redefined\n", t->linenum, t->str);
+            exit(1);
+        }
+        LexToken *t2 = lex_peek(s);
         if (t2->type != TOK_ASSIGN) {
             if (t2->type == TOK_SEMICOLON) {
                 sym_new(scope, t->str, asttovar(lextoast(tok->type)), S_VAR, 0);
@@ -178,6 +205,7 @@ AST *globvardef(LexTokenStream *s, SymTable *scope) {
                 exit(1);
             }
         }
+        lex_consume_assert(s, TOK_ASSIGN);
         AST *child = number(s, scope);
         if (child->type != AST_INT_LIT) {
             fprintf(stderr, "Ln %d: Error: only integer initialisers for global variables are currently supported\n", t2->linenum);
@@ -383,6 +411,13 @@ AST *forsmt(LexTokenStream *s, SymTable *scope) {
     return ast_construct(ch1, 2, AST_PROG, 0, VAR_NONE);
 }
 
+int is_sig_compatible(struct FuncSig func, struct FuncSig caller) {
+    if (func.numargs != caller.numargs) {
+        return 0;
+    }
+    return 1;
+}
+
 AST *funccall(LexTokenStream *s, SymTable *scope) {
     LexToken *tok = lex_consume_assert(s, TOK_IDENT);
     Symbol *sym = sym_find_from_str(scope, tok->str);
@@ -394,18 +429,39 @@ AST *funccall(LexTokenStream *s, SymTable *scope) {
     lex_consume_assert(s, TOK_OPAREN);
     ASTList lst;
     ast_list_init(&lst);
+    struct FuncSig sig;
+    sig.argtypes = malloc(sizeof(VarType) * 64);
+    sig.numargs = 0;
+    int cap = 64;
     while (lex_peek(s)->type != TOK_CPAREN) {
         AST *exprast = expr(s, scope);
         if (lex_peek(s)->type != TOK_CPAREN) {
             lex_consume_assert(s, TOK_COMMA);
         }
+        sig.argtypes[sig.numargs++] = exprast->vartype;
+        if (sig.numargs >= cap) {
+            sig.argtypes = realloc(sig.argtypes, cap *= 2);
+        }
         ast_list_append(&lst, exprast);
+    }
+    if (!is_sig_compatible(sym->sig, sig)) {
+        fprintf(stderr, "Ln %d: Error: attempt to call function '%s' with incorrect arguments (TODO expand this message)\n", lex_peek_n(s, -1)->linenum, tok->str);
+        exit(1);
     }
     lex_consume_assert(s, TOK_CPAREN);
     AST *arglist = ast_construct_with_scope(lst.smts, lst.pos, AST_ARGLIST, 0, VAR_NONE, scope);
     AST **ch = malloc(sizeof(*ch));
     ch[0] = arglist;
-    return ast_construct(ch, 1, AST_FUNCCALL, sym->ident, VAR_VOID);
+    return ast_construct(ch, 1, AST_FUNCCALL, sym->ident, sym->ty);
+}
+
+AST *returnsmt(LexTokenStream *s, SymTable *scope) {
+    lex_consume_assert(s, TOK_KRETURN);
+    AST *exprast = expr(s, scope);
+    lex_consume_assert(s, TOK_SEMICOLON);
+    AST **ch = malloc(sizeof(*ch));
+    ch[0] = exprast;
+    return ast_construct(ch, 1, AST_KRETURN, 0, VAR_VOID);
 }
 
 AST *statement(LexTokenStream *s, SymTable *scope) {
@@ -432,6 +488,7 @@ AST *statement(LexTokenStream *s, SymTable *scope) {
         case TOK_KIF: return ifsmt(s, scope);
         case TOK_KWHILE: return whilesmt(s, scope);
         case TOK_KFOR: return forsmt(s, scope);
+        case TOK_KRETURN: return returnsmt(s, scope);
         default:
             fprintf(stderr, "Ln %d: Syntax error, token %s\n", lex_peek(s)->linenum, toktostr(lex_peek(s)->type));
             exit(1);
@@ -443,10 +500,32 @@ AST *func_def(LexTokenStream *s, SymTable *scope) {
     sym_init(inside_scope, scope);
     inside_scope->base_func_table = 1;
 
-    lex_consume_assert(s, TOK_KVOID);
+    LexToken *rettype = lex_consume(s);
+    VarType retvartype;
+    switch (rettype->type) {
+        case TOK_KINT:
+        case TOK_KCHAR:
+        case TOK_KSTRUCT:
+        case TOK_KVOID:
+        case TOK_KENUM:
+        case TOK_KLONG:
+        case TOK_KSHORT: 
+            retvartype = asttovar(lextoast(rettype->type));
+            break;
+        default:
+            fprintf(stderr, "Ln %d: Syntax error: Expected type identifier, got '%s'", rettype->linenum, toktostr(rettype->type));
+            exit(1);
+    }
+    
     LexToken *t = lex_consume_assert(s, TOK_IDENT);
+
     lex_consume_assert(s, TOK_OPAREN);
-    ASTList lst;
+    struct FuncSig sig;
+    sig.argtypes = malloc(sizeof(VarType) * 64);
+    sig.numargs = 0;
+    int cap = 64;
+    
+    struct ASTList lst;
     ast_list_init(&lst);
     while (lex_peek(s)->type != TOK_CPAREN) {
         LexToken *type = lex_consume(s);
@@ -460,8 +539,14 @@ AST *func_def(LexTokenStream *s, SymTable *scope) {
             case TOK_KSHORT: {
                 LexToken *ident = lex_consume_assert(s, TOK_IDENT);
                 Symbol *sym = sym_stack_new(inside_scope, ident->str, asttovar(lextoast(type->type)));
+                sym->stack_offset = -(sig.numargs + 2) * 4;
 
                 ast_list_append(&lst, ast_construct(NULL, 0, AST_ARG, sym->ident, VAR_NONE));
+                sig.argtypes[sig.numargs++] = asttovar(lextoast(type->type));
+                if (sig.numargs >= cap) {
+                    sig.argtypes = realloc(sig.argtypes, cap *= 2);
+                }
+
                 
                 if (lex_peek(s)->type == TOK_CPAREN) break;
                 lex_consume_assert(s, TOK_COMMA);
@@ -473,20 +558,32 @@ AST *func_def(LexTokenStream *s, SymTable *scope) {
         }
     }
     lex_consume_assert(s, TOK_CPAREN);
+    
+    Symbol *sym = sym_find_from_str(scope, t->str);
     if (lex_peek(s)->type == TOK_SEMICOLON) {
         lex_consume_assert(s, TOK_SEMICOLON);
-        sym_new(scope, t->str, asttovar(AST_KVOID), S_FUNC, 0);
+        if (sym == NULL) {
+            sym_func_new(scope, t->str, retvartype, sig, 0);
+        }
         return NULL;
     } else {
+        if (sym != NULL && sym->init_value /*is_defined*/) {
+            fprintf(stderr, "Ln %d: Error: function '%s' redefined\n", t->linenum, t->str);
+            exit(1);
+        }
         AST *body = compoundsmt(s, inside_scope);
         AST *arglist = ast_construct_with_scope(lst.smts, lst.pos, AST_ARGLIST, 0, VAR_NONE, inside_scope);
 
         AST **children = malloc(sizeof(AST*) * 2);
         children[0] = arglist;
         children[1] = body;
-
-        Symbol *sym = sym_new(scope, t->str, asttovar(AST_KVOID), S_FUNC, 0);
-        return ast_construct_with_scope(children, 2, AST_FUNC, sym->ident, VAR_NONE, inside_scope);
+        Symbol *nsym = sym;
+        if (sym == NULL) {
+            nsym = sym_func_new(scope, t->str, retvartype, sig, 1);
+        } else {
+            sym->init_value = 1;
+        }
+        return ast_construct_with_scope(children, 2, AST_FUNC, nsym->ident, VAR_NONE, inside_scope);
     }
 }
 

@@ -20,7 +20,7 @@ size_t linker_link(uint8_t **input, size_t n, size_t *inp_lens, uint8_t **data) 
         table_init(&table);
         uint8_t *code = NULL;
         size_t codelen = jobj_process_file(contents, len, &code, &table);
-        printf("codelen init %lu\n", len);
+        //printf("codelen init %lu\n", len);
 
         uint32_t delta = max_last_id;
 
@@ -31,9 +31,9 @@ size_t linker_link(uint8_t **input, size_t n, size_t *inp_lens, uint8_t **data) 
         for (uint32_t i = 0; i < table.phoff_cap; i++) {
             uint32_t val;
             memcpy(&val, code + table.phoff[i], 4);
-            printf("Sym originally: %d\n", val);
+            //printf("Sym originally: %d\n", val);
             val += delta;
-            printf("Sym: %d\n", val);
+            //printf("Sym: %d\n", val);
             if (val > max_last_id) max_last_id = val;
             memcpy(code + table.phoff[i], &val, 4);
         }
@@ -50,21 +50,21 @@ size_t linker_link(uint8_t **input, size_t n, size_t *inp_lens, uint8_t **data) 
         memcpy(total_code + total_codesz, code, codelen);
         free(code);
         total_codesz += codelen;
-        printf("Codelen add: %lu\n", codelen);
+        //printf("Codelen add: %lu\n", codelen);
 
         table_merge(&total, &table);
         //table_free(&table);
     }
 
-    printf("\n\n\nResolved:\n");
-    for (uint32_t i = 0; i < total.res_cap; i++) {
-        printf("%s: %d\n", total.res_syms[i], total.locs[i]);
-    }
+    //printf("\n\n\nResolved:\n");
+    //for (uint32_t i = 0; i < total.res_cap; i++) {
+    //    printf("%s: %d\n", total.res_syms[i], total.locs[i]);
+    //}
     
-    printf("\nUnresolved:\n");
-    for (uint32_t i = 0; i < total.unres_cap; i++) {
-        printf("%s: %d\n", total.unres_syms[i], total.ids[i]);
-    }
+    //printf("\nUnresolved:\n");
+    //for (uint32_t i = 0; i < total.unres_cap; i++) {
+    //    printf("%s: %d\n", total.unres_syms[i], total.ids[i]);
+    //}
 
     for (uint32_t i = 0; i < total.phoff_cap; i++) {
         uint32_t val;

@@ -55,10 +55,10 @@ int main(int argc, char **argv) {
     }
     error_free(&preproc_err);
 
-    lex_print_tokens(&s);
-    char *src = lex_reconstruct_src(&s);
-    printf("%s\n", src);
-    free(src);
+    //lex_print_tokens(&s);
+    //char *src = lex_reconstruct_src(&s);
+    //printf("%s\n", src);
+    //free(src);
 
     char *all_code = malloc(1024);
     size_t code_len = 0;

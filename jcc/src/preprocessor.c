@@ -191,14 +191,14 @@ Error preprocess_tokens_internal(LexTokenStream *input, StrMap *defines) {
 }
 
 char *preprocess_includes(Reader *input) {
-    char *output = malloc(reader_bytes_left(input) + 1 /*for null term*/);
+    char *output = malloc(reader_bytes_left(input) + 2 /*for null term*/);
     size_t curr_bytes = reader_bytes_left(input);
     char *ptr = output;
     while (reader_bytes_left(input) > 0) {
         char *line = reader_read_line(input);
         if (strncmp(line, "#include", 8) == 0) {
             //just allocate the maximum size the filename *could* be, because I am lazy
-            char *fname = malloc(strlen(line) - 8);
+            char *fname = malloc(strlen(line) - 7);
             char *pos = line + 7;
             char delim;
             while (*++pos == ' ');

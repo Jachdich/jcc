@@ -90,6 +90,8 @@ struct AST {
     SymTable *scope;
 };
 
+int varsize(VarType ty);
+
 int ast_gen(AST * ast, LexTokenStream *s, SymTable *scope);
 void ast_print(AST *ast);
 void ast_free(AST *ast);

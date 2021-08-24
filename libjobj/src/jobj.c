@@ -15,7 +15,7 @@ uint8_t *read_table(uint8_t *data, char **syms, uint32_t *ids, uint32_t num) {
         memcpy(&value, data, 4);
         data += 4;
         ids[i] = value;
-        printf("%s: %d\n", syms[i], ids[i]);
+        //printf("%s: %d\n", syms[i], ids[i]);
     }
     return data;
 }
@@ -50,9 +50,9 @@ size_t jobj_process_file(uint8_t *data, size_t fsize, uint8_t **code, struct Lin
     table->res_pos = 0;
     table->unres_cap = header.unres_sym_len;
     table->unres_pos = 0;
-    printf("Unresolved:\n");
+    //printf("Unresolved:\n");
     data = read_table(data, table->unres_syms, table->ids, header.unres_sym_len);
-    printf("Resolved:\n");
+    //printf("Resolved:\n");
     data = read_table(data, table->res_syms, table->locs, header.res_sym_len);
 
     uint32_t num_to_replace;
@@ -61,16 +61,16 @@ size_t jobj_process_file(uint8_t *data, size_t fsize, uint8_t **code, struct Lin
     table->phoff = malloc(sizeof(uint32_t) * num_to_replace);
     memcpy(table->phoff, data, sizeof(uint32_t) * num_to_replace);
     data += sizeof(uint32_t) * num_to_replace;
-    printf("To replace %d:\n", num_to_replace);
-    for (uint32_t i = 0; i < num_to_replace; i++) {
-        printf("%d\n", table->phoff[i]);
-    }
+    //printf("To replace %d:\n", num_to_replace);
+    //for (uint32_t i = 0; i < num_to_replace; i++) {
+    //    printf("%d\n", table->phoff[i]);
+    //}
     table->phoff_cap = num_to_replace;
     table->phoff_pos = 0;
 
     size_t bytes_read = data - orig_data;
     size_t bytes_to_read = fsize - bytes_read;
-    printf("Bytes read: %lu\n", bytes_read);
+    //printf("Bytes read: %lu\n", bytes_read);
     *code = malloc(bytes_to_read);
     memcpy(*code, data, bytes_to_read);
     return bytes_to_read;
@@ -104,11 +104,11 @@ void table_merge(struct LinkTable *a, struct LinkTable *b) {
     a->res_syms = realloc(a->res_syms, (a->res_cap + b->res_cap) * sizeof(*a->res_syms));
     a->ids = realloc(a->ids, (a->unres_cap + b->unres_cap) * sizeof(*a->ids));
     a->locs = realloc(a->locs, (a->res_cap + b->res_cap) * sizeof(*a->locs));;
-    printf("A unres size: %lu\nB unres size: %lu\n", a->unres_cap, b->unres_cap);
-    printf("New unres size: %lu\n", a->unres_cap + b->unres_cap);
+    //printf("A unres size: %lu\nB unres size: %lu\n", a->unres_cap, b->unres_cap);
+    //printf("New unres size: %lu\n", a->unres_cap + b->unres_cap);
 
     for (uint32_t i = 0; i < b->unres_cap; i++) {
-        printf("New unres index: %d %lu\n", i, i + a->unres_cap);
+        //printf("New unres index: %d %lu\n", i, i + a->unres_cap);
         a->unres_syms[i + a->unres_cap] = b->unres_syms[i];
         a->ids[i + a->unres_cap] = b->ids[i];
     }
@@ -129,11 +129,11 @@ void table_merge(struct LinkTable *a, struct LinkTable *b) {
             a->phoff[a->phoff_cap + i] = b->phoff[i];
         }
         a->phoff_cap += b->phoff_cap;
-        printf("phoff: \n");
-        for (uint8_t i = 0; i < a->phoff_cap; i++) {
-            printf("%d, ", a->phoff[i]);
-        }
-        printf("\n");
+        //printf("phoff: \n");
+        //for (uint8_t i = 0; i < a->phoff_cap; i++) {
+        //    printf("%d, ", a->phoff[i]);
+        //}
+        //printf("\n");
     }
 }
 

@@ -7,7 +7,7 @@ jcc: $(OBJECTS)
 
 obj/%.o: src/%.c $(HEADERS) $(ASMHEADERS)
 	@mkdir -p obj
-	gcc -c -o $@ $< -Wall -g -Iinclude -I../assembler/include
+	gcc -c -o $@ $< -Wall -gdwarf-3 -Iinclude -I../assembler/include
 
 debug: jcc
 	gdb jcc

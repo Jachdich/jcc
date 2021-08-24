@@ -35,9 +35,9 @@ int strsepcmp(char *a, char *b) {
 
 
 int is_intlit(char *str) {
-    if (!isnum(*str)) return 0;
+    if (!isnum(*str) && *str != '-') return 0;
     while (!issep(*str) && *str != 0) {
-        if (*str < '0' || *str > '9') return 0;
+        if ((*str < '0' || *str > '9' ) && *str != '-') return 0;
         str++;
     }
     return 1;
@@ -100,6 +100,8 @@ uint8_t get_opcode(char **str) {
     if (strncmp(init, "drefw",sz) == 0) return 0x1E;
     if (strncmp(init, "push", sz) == 0) return 0x1F;
     if (strncmp(init, "pop",  sz) == 0) return 0x20;
+    if (strncmp(init, "movbp",sz) == 0) return 0x21;
+    if (strncmp(init, "movpb",sz) == 0) return 0x22;
     printf("Unknown opcode %s\n", init);
     return -1;
 }
@@ -154,8 +156,16 @@ Arg *read_args(char *str) {
             posargs[i].t = AT_REG;
         } else if (is_intlit(str)) {
             posargs[i].i = 0;
+            int neg = 0;
+            if (*str == '-') {
+                str++;
+                neg = 1;
+            }
             while (*str >= '0' && *str <= '9') {
                 posargs[i].i = posargs[i].i * 10 + *str++ - '0';
+            }
+            if (neg) {
+                posargs[i].i *= -1;
             }
             posargs[i].t = AT_INT;
         } else {
@@ -259,6 +269,8 @@ int args_match(uint8_t opcode, Arg *args, int linenum, char *line) {
         case 0x1E: return args_assert(args, AT_REG,   AT_REG,   AT_NONE, linenum, line);
         case 0x1F: return args_assert(args, AT_REG,   AT_NONE,  AT_NONE, linenum, line);
         case 0x20: return args_assert(args, AT_REG,   AT_NONE,  AT_NONE, linenum, line);
+        case 0x21: return args_assert(args, AT_INT,   AT_REG,   AT_NONE, linenum, line);
+        case 0x22: return args_assert(args, AT_REG,   AT_INT,   AT_NONE, linenum, line);
         default:
             fprintf(stderr, "Bug: Unrecognised opcode %02x\n", opcode);
             return 0;
@@ -419,12 +431,12 @@ size_t reorder_args(uint8_t **code_ptr, Instr *instrs, size_t num_instrs, size_t
         Instr in = instrs[i];
         Arg *a = in.args;
         code[pos++] = in.opcode;
+        printf("LIT: %02x %02x %02x %02x\n", in.opcode, a[0].i, a[1].i, a[2].i);
         if (in.is_lit) {
             code[pos++] = a[0].i;
             code[pos++] = a[1].i;
             code[pos++] = a[2].i;
 
-            printf("LIT: %02x %02x %02x %02x\n", in.opcode, a[0].i, a[1].i, a[2].i);
         } else {
             switch (in.opcode) {
                 case 0x00: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = 0;     break;
@@ -451,17 +463,19 @@ size_t reorder_args(uint8_t **code_ptr, Instr *instrs, size_t num_instrs, size_t
                 case 0x13: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0; writeqword(code, &pos, a[1].i); break;
                 case 0x14: code[pos++] = a[1].i; code[pos++] = 0; code[pos++] = 0; writeqword(code, &pos, a[0].i); break;
                 case 0x15: code[pos++] = a[1].i; code[pos++] = 0; code[pos++] = 0; writeqword(code, &pos, a[0].i); break;
-                case 0x16: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;
-                case 0x17: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;
-                case 0x18: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;
-                case 0x19: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;
-                case 0x1A: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i;break;
+                case 0x16: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i; break;
+                case 0x17: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i; break;
+                case 0x18: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i; break;
+                case 0x19: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i; break;
+                case 0x1A: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = a[2].i; break;
                 case 0x1B: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0; writeqword(code, &pos, a[1].i); break;
-                case 0x1C: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0;  break;
-                case 0x1D: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = 0;  break;
-                case 0x1E: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = 0;  break;
-                case 0x1F: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0;  break;
-                case 0x20: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0;  break;
+                case 0x1C: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0; break;
+                case 0x1D: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = 0; break;
+                case 0x1E: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = 0; break;
+                case 0x1F: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0; break;
+                case 0x20: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0; break;
+                case 0x21: code[pos++] = a[1].i; writeshort(code, &pos, a[0].i); break;
+                case 0x22: code[pos++] = a[0].i; writeshort(code, &pos, a[1].i); break;
                 default: break;
             }
         }

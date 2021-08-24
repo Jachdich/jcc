@@ -5,6 +5,11 @@
 typedef struct Symbol Symbol;
 typedef struct SymTable SymTable;
 
+struct FuncSig {
+    VarType *argtypes;
+    int numargs;
+};
+
 struct Symbol {
     char *s;
     VarType ty;
@@ -13,6 +18,7 @@ struct Symbol {
     int init_value;
     int is_stack;
     int stack_offset;
+    struct FuncSig sig;
 };
 
 struct SymTable {
@@ -30,5 +36,6 @@ Symbol *sym_find_from_str(SymTable *t, char *name);
 void sym_free(SymTable *t);
 Symbol *sym_stack_new(SymTable *t, char *name, VarType type);
 char *sym_find(SymTable *table, size_t ident);
-
+Symbol *sym_get(SymTable *t, char *name);
+Symbol *sym_func_new(SymTable *t, char *name, VarType type, struct FuncSig sig, int is_defiend);
 #endif

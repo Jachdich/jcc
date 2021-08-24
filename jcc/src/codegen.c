@@ -57,7 +57,7 @@ void state_alloc_atleast(CGState *s, size_t bytes) {
 
 char *state_gen_label(CGState *s) {
     char *res = malloc(8);
-    sprintf(res, "lab_%03d", s->label_ident++);
+    sprintf(res, "L%03d", s->label_ident++);
     return res;
 }
 
@@ -85,7 +85,6 @@ int reg_alloc(CGState *state) {
     for (size_t i = 0; i < state->num_regs; i++) {
         if (state->regs_free[i] == 0) {
             state->regs_free[i] = 1;
-            printf("Allocating %lu\n", i);
             return i;
         }
     }
@@ -95,7 +94,6 @@ int reg_alloc(CGState *state) {
 
 void reg_free(CGState *state, int reg) {
     state->regs_free[reg] = 0;
-    printf("Freeing %d\n", reg);
 }
 
 int cgmathop(int rega, int regb, int op, CGState *s) {
@@ -143,35 +141,40 @@ int cgloadglob(CGState *s, char *ident) {
 
 int cgloadlocal(CGState *s, char *ident) {
     int reg = reg_alloc(s);
-    int temp = reg_alloc(s);
+    //int temp = reg_alloc(s);
     int offset = sym_find_from_str(s->table, ident)->stack_offset;
 
     if (s->debug) {
         state_alloc_atleast(s, 36 + REGSTRLEN + strlen(ident));
         s->cl += sprintf(s->c + s->cl, "\n\t; Loading local variable '%s' into %s\n", ident, s->reg_names[reg]);
     }
-    
+
+    /*
     state_alloc_atleast(s, 34 + REGSTRLEN * 4 + MAXINTSTRLEN);
     s->cl += sprintf(s->c + s->cl, "\tmov\trbp -> %s\n",  s->reg_names[temp]);
     s->cl += sprintf(s->c + s->cl, "\taddi\t%s, %d\n",    s->reg_names[temp], offset);
-    s->cl += sprintf(s->c + s->cl, "\tdrefr\t%s -> %s\n", s->reg_names[temp], s->reg_names[reg]);
-    reg_free(s, temp);
+    s->cl += sprintf(s->c + s->cl, "\tdrefr\t%s -> %s\n", s->reg_names[temp], s->reg_names[reg]);*/
+    state_alloc_atleast(s, 12 + MAXINTSTRLEN + REGSTRLEN);
+    s->cl += sprintf(s->c + s->cl, "\tmovbp\t%d -> %s\n", offset, s->reg_names[reg]);
+    //reg_free(s, temp);
     return reg;
 }
 
 int cgstorelocal(CGState *s, int reg, char *ident) {
-    int temp = reg_alloc(s);
+    //int temp = reg_alloc(s);
     int offset = sym_find_from_str(s->table, ident)->stack_offset;
 
     if (s->debug) {
         state_alloc_atleast(s, 36 + REGSTRLEN + strlen(ident));
         s->cl += sprintf(s->c + s->cl, "\n\t; Storing %s into local variable '%s'\n", s->reg_names[reg], ident);
     }
-    state_alloc_atleast(s, 34 + REGSTRLEN * 4 + MAXINTSTRLEN);
-    s->cl += sprintf(s->c + s->cl, "\tmov\trbp -> %s\n",  s->reg_names[temp]);
-    s->cl += sprintf(s->c + s->cl, "\taddi\t%s, %d\n",    s->reg_names[temp], offset);
-    s->cl += sprintf(s->c + s->cl, "\tdrefw\t%s -> %s\n", s->reg_names[reg], s->reg_names[temp]);
-    reg_free(s, temp);
+    //state_alloc_atleast(s, 34 + REGSTRLEN * 4 + MAXINTSTRLEN);
+    //s->cl += sprintf(s->c + s->cl, "\tmov\trbp -> %s\n",  s->reg_names[temp]);
+    //s->cl += sprintf(s->c + s->cl, "\taddi\t%s, %d\n",    s->reg_names[temp], offset);
+    //s->cl += sprintf(s->c + s->cl, "\tdrefw\t%s -> %s\n", s->reg_names[reg], s->reg_names[temp]);
+    //reg_free(s, temp);
+    state_alloc_atleast(s, 12 + MAXINTSTRLEN + REGSTRLEN);
+    s->cl += sprintf(s->c + s->cl, "\tmovpb\t%s -> %d\n", s->reg_names[reg], offset);
     return -1;
 }
 
@@ -269,10 +272,11 @@ int cgfunc(CGState *s, AST *ast) {
     state_alloc_atleast(s, 40 + strlen(label) + MAXINTSTRLEN);
     s->cl += sprintf(s->c + s->cl, "%s:\n\tpush\trbp\n\tmov\trsp -> rbp\n\taddi\trsp, %d\n", label, num_vars);
 
+    /*
     int t1_r = reg_alloc(s);
-    int t2_r = reg_alloc(s);
+    //int t2_r = reg_alloc(s);
     const char *t1 = s->reg_names[t1_r];
-    const char *t2 = s->reg_names[t2_r];
+    //const char *t2 = s->reg_names[t2_r];
     for (size_t idx = 0; idx < ast->children[0]->children_n; idx++) {
         AST *arg = ast->children[0]->children[idx];
         int offset = sym_find_from_str(s->table, sym_find(s->table, arg->i))->stack_offset;
@@ -280,16 +284,19 @@ int cgfunc(CGState *s, AST *ast) {
             state_alloc_atleast(s, 52 + MAXINTSTRLEN + strlen(sym_find(s->table, arg->i)));
             s->cl += sprintf(s->c + s->cl, "\t; Loading argument '%s' (orig value at rbp offset -%d)\n", sym_find(s->table, arg->i), 4 * (int)(idx + 2));
         }
-        state_alloc_atleast(s, 68 + strlen(t1) + strlen(t2) + MAXINTSTRLEN * 2);
-        s->cl += sprintf(s->c + s->cl, "\tmov\trbp -> %s\n",  t1);
-        s->cl += sprintf(s->c + s->cl, "\tsubi\t%s, %d\n",    t1, 4 * ((int)idx + 2));
-        s->cl += sprintf(s->c + s->cl, "\tdrefr\t%s -> %s\n", t1, t2);
-        s->cl += sprintf(s->c + s->cl, "\tmov\trbp -> %s\n",  t1);
-        s->cl += sprintf(s->c + s->cl, "\taddi\t%s, %d\n",    t1, offset);
-        s->cl += sprintf(s->c + s->cl, "\tdrefw\t%s -> %s\n", t2, t1);
+        //state_alloc_atleast(s, 68 + strlen(t1) + strlen(t2) + MAXINTSTRLEN * 2);
+        //s->cl += sprintf(s->c + s->cl, "\tmov\trbp -> %s\n",  t1);
+        //s->cl += sprintf(s->c + s->cl, "\tsubi\t%s, %d\n",    t1, 4 * ((int)idx + 2));
+        //s->cl += sprintf(s->c + s->cl, "\tdrefr\t%s -> %s\n", t1, t2);
+        //s->cl += sprintf(s->c + s->cl, "\tmov\trbp -> %s\n",  t1);
+        //s->cl += sprintf(s->c + s->cl, "\taddi\t%s, %d\n",    t1, offset);
+        //s->cl += sprintf(s->c + s->cl, "\tdrefw\t%s -> %s\n", t2, t1);
+        state_alloc_atleast(s, 24 + strlen(t1) * 2 + MAXINTSTRLEN * 2);
+        s->cl += sprintf(s->c + s->cl, "\tmovbp\t%d -> %s\n", -4 * ((int)idx + 2), t1);
+        s->cl += sprintf(s->c + s->cl, "\tmovpb\t%s -> %d\n", t1, offset);
     }
     reg_free(s, t1_r);
-    reg_free(s, t2_r);
+    //reg_free(s, t2_r);*/
     
     gen_ast(ast->children[1], s, -1);
 
@@ -300,11 +307,18 @@ int cgfunc(CGState *s, AST *ast) {
 
 int cgfunccall(CGState *s, int ident, size_t n_args) {
     char *label = sym_find(s->table, ident);
+    Symbol *func= sym_find_from_str(s->table, label);
     state_alloc_atleast(s, 7 + 12 + strlen(label));
     s->cl += sprintf(s->c + s->cl, "\tcall\t%s\n", label);
+    int reg = -1;
+    if (func->ty != VAR_VOID) {
+        reg = reg_alloc(s);
+        state_alloc_atleast(s, 7 + 12 + 6 + strlen(label));
+        s->cl += sprintf(s->c + s->cl, "\tpop\t%s\n", s->reg_names[reg]);
+    }
     s->cl += sprintf(s->c + s->cl, "\tsubi\trsp, %d\n", (int)(n_args * 4));
     
-    return -1;
+    return reg;
 }
 
 int cgsetupargs(CGState *s, int *regs, size_t num) {
@@ -312,25 +326,17 @@ int cgsetupargs(CGState *s, int *regs, size_t num) {
         state_alloc_atleast(s, 7 + REGSTRLEN);
         s->cl += sprintf(s->c + s->cl, "\tpush\t%s\n", s->reg_names[regs[i]]);
     }
+    return -1;
+}
+
+int cgret(CGState *s, int reg) {
+    state_alloc_atleast(s, 12 + REGSTRLEN);
+    s->cl += sprintf(s->c + s->cl, "\tpush\t%s\n\tret\n", s->reg_names[reg]);
 }
 
 int gen_ast(AST *ast, CGState *state, int reg) {
     SymTable *tab = ast->scope;
-    SymTable *orig = state->table;
-    printf("\n\nUsing table:\n");
-    SymTable *t = tab;
-    int i = 0;
-    while (t != NULL) {
-        for (size_t a = 0; a < t->pos; a++) {
-            for (int b = 0; b < i; b++) {
-                printf("    ");
-            }
-            printf("%lu: %s\n", t->symbols[a].ident, t->symbols[a].s);
-        }
-        t = t->outer;
-        i++;
-    }
-    if (tab != NULL) {
+    SymTable *orig = state->table;    if (tab != NULL) {
         state->table = tab;
     }
     
@@ -353,7 +359,6 @@ int gen_ast(AST *ast, CGState *state, int reg) {
     }
 
     int res = -1;
-    printf("TYPE: %s\n", asttypetostr(ast->type));
     switch (ast->type) {
         case AST_PROG:   break; //already calculated all the children so leave
         case AST_ADD:    res = cgmathop(ch_regs[0], ch_regs[1], CG_ADD, state); break;
@@ -372,7 +377,8 @@ int gen_ast(AST *ast, CGState *state, int reg) {
         case AST_ASSIGN: res = ch_regs[0]; break;
         case AST_KPRINT: cgprintint(state, ch_regs[0]); break;
         case AST_FUNCCALL: res = cgfunccall(state, ast->i, ast->children[0]->children_n); break;
-        case AST_ARGLIST:  res = -1; cgsetupargs(state, ch_regs, ast->children_n); break;
+        case AST_ARGLIST:  res = cgsetupargs(state, ch_regs, ast->children_n); break;
+        case AST_KRETURN: res = cgret(state, ch_regs[0]); break;
         default:
             fprintf(stderr, "Error: unrecognised token '%s'\n", asttypetostr(ast->type));
             exit(1);

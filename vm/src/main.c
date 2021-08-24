@@ -60,6 +60,8 @@ const char *op_name(uint8_t op) {
         case 0x1E: return "drefw";
         case 0x1F: return "push ";
         case 0x20: return "pop  ";
+        case 0x21: return "movbp";
+        case 0x22: return "mobpb";
     }
     return "Invalid opcode";
 }
@@ -73,6 +75,7 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr, uint8_t *
     m->pcsp = 0;
     while ((unsigned)m->pc < ninstr) {
         struct Instruction instr = stream[m->pc++];
+        
         printf("Pc: %02x, Regs: %08x %08x %08x %08x, opcode: %s %02x, %02x, %02x (%04x) (next qword %08x instr %08x) ",
                 m->pc, m->regs[0], m->regs[1], m->regs[2], m->regs[3],
                 op_name(instr.opcode), instr.arg1, instr.arg2, instr.arg3,
@@ -206,6 +209,24 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr, uint8_t *
                     m->regs[instr.arg1] = *(uint32_t*)((uint8_t*)stream + m->regs[SP_POS]);
                 }
                 break;
+            case 0x21: {
+                uint32_t addr = (m->regs[BP_POS] + (signed)instr.arg23);
+                if (addr & 0x80000000) {
+                    m->regs[instr.arg1] = *(uint32_t*)(size_t)(addr & 0x7FFFFFFF);
+                } else {
+                    m->regs[instr.arg1] = *(uint32_t*)((uint8_t*)stream + addr);
+                }
+                break;
+            }
+            case 0x22: {
+                uint32_t addr = (m->regs[BP_POS] + (signed)instr.arg23);
+                if (addr & 0x80000000) {
+                    *(uint32_t*)(size_t)(addr & 0x7FFFFFFF) = m->regs[instr.arg1];
+                } else {
+                    *(uint32_t*)((uint8_t*)stream + addr) = m->regs[instr.arg1];
+                }
+                break;
+            }
             default:
                 printf("Error: unrecognised opcode %02x\n", instr.opcode);
                 exit(0);

@@ -33,6 +33,10 @@ char reader_peek(Reader *r) {
     return *r->pos;
 }
 
+char reader_peek_n(Reader *r, int n) {
+    return *(r->pos + n - 1);
+}
+
 char reader_consume(Reader *r) {
     return *(r->pos++);
 }

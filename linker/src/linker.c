@@ -82,7 +82,7 @@ size_t linker_link(uint8_t **input, size_t n, size_t *inp_lens, uint8_t **data) 
             for (uint32_t e = 0; e < total_codesz; e += 4) {
                 printf("%02x %02x %02x %02x\n", total_code[e], total_code[e + 1], total_code[e + 2], total_code[e + 3]);
             }
-            exit(0);
+            exit(1);
         }
 
         int32_t replace_with = -1;
@@ -95,7 +95,7 @@ size_t linker_link(uint8_t **input, size_t n, size_t *inp_lens, uint8_t **data) 
 
         if (replace_with == -1) {
             printf("Unresolved symbol '%s' was not found\n", total.unres_syms[sym_index]);
-            exit(0);
+            exit(1);
         }
         val = replace_with;
         memcpy(total_code + total.phoff[i], &val, 4);

@@ -1,9 +1,9 @@
 #include "stdio.jh"
 
-int add(int a, int b) {
-    return a - b;
+char add(char a, char b) {
+    return a + b;
 }
 
 void _start() {
-    println(add(10, 2) + 1);
+    println(add(-10, 10));
 }

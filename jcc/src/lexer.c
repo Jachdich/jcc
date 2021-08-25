@@ -47,10 +47,18 @@ Error lex_read_token(Reader *r, LexToken *tok, int ln) {
         }
     }
     
-    if (isdigit(reader_peek(r))) {
+    if (isdigit(reader_peek(r)) || (reader_peek(r) == '-' && isdigit(reader_peek_n(r, 2)))) {
         int64_t i = 0;
+        int neg = 0;
+        if (reader_peek(r) == '-') {
+            neg = 1;
+            reader_consume(r);
+        }
         while (isdigit(reader_peek(r))) {
             i = i * 10 + (reader_consume(r) - '0');
+        }
+        if (neg) {
+            i = -i;
         }
         *tok = (LexToken){NULL, i, TOK_INT, ln};
     } else if (isalpha(reader_peek(r)) || reader_peek(r) == '_') {

@@ -38,6 +38,20 @@ enum {
 
 typedef struct CGState CGState;
 
+char get_suffix(int sz) {
+    switch (sz) {
+        case 1:
+            return 'b';
+        case 2:
+            return 'd';
+        case 4:
+            return 'q';
+        default:
+            printf("Something trued to use size of %d\n", sz);
+            exit(1);
+    }
+}
+
 void state_alloc_atleast(CGState *s, size_t bytes) {
     //sanity check
     if (bytes <= 0) {
@@ -131,55 +145,45 @@ int cgprintint(CGState *s, int reg) {
     return -1;
 }
 int cgstoreglob(CGState *s, int reg, char *ident) {
-    state_alloc_atleast(s, 12 + REGSTRLEN + strlen(ident));
-    s->cl += sprintf(s->c + s->cl, "\tmovra\t%s -> %s\n", s->reg_names[reg], ident);
+    VarType v = sym_find_from_str(s->table, ident)->ty;
+    state_alloc_atleast(s, 13 + REGSTRLEN + strlen(ident));
+    s->cl += sprintf(s->c + s->cl, "\tmovra%c\t%s -> %s\n", get_suffix(varsize(v)), s->reg_names[reg], ident);
     reg_free(s, reg);
     return -1;
 }
 
 int cgloadglob(CGState *s, char *ident) {
     int reg = reg_alloc(s);
-    state_alloc_atleast(s, 12 + REGSTRLEN + strlen(ident));
-    s->cl += sprintf(s->c + s->cl, "\tmovar\t%s -> %s\n", ident, s->reg_names[reg]);
+    VarType v = sym_find_from_str(s->table, ident)->ty;
+    state_alloc_atleast(s, 13 + REGSTRLEN + strlen(ident));
+    s->cl += sprintf(s->c + s->cl, "\tmovar%c\t%s -> %s\n", get_suffix(varsize(v)), ident, s->reg_names[reg]);
     return reg;
 }
 
 int cgloadlocal(CGState *s, char *ident) {
     int reg = reg_alloc(s);
-    //int temp = reg_alloc(s);
     int offset = sym_find_from_str(s->table, ident)->stack_offset;
-
+    VarType v  = sym_find_from_str(s->table, ident)->ty;
     if (s->debug) {
         state_alloc_atleast(s, 36 + REGSTRLEN + strlen(ident));
         s->cl += sprintf(s->c + s->cl, "\n\t; Loading local variable '%s' into %s\n", ident, s->reg_names[reg]);
     }
 
-    /*
-    state_alloc_atleast(s, 34 + REGSTRLEN * 4 + MAXINTSTRLEN);
-    s->cl += sprintf(s->c + s->cl, "\tmov\trbp -> %s\n",  s->reg_names[temp]);
-    s->cl += sprintf(s->c + s->cl, "\taddi\t%s, %d\n",    s->reg_names[temp], offset);
-    s->cl += sprintf(s->c + s->cl, "\tdrefr\t%s -> %s\n", s->reg_names[temp], s->reg_names[reg]);*/
     state_alloc_atleast(s, 12 + MAXINTSTRLEN + REGSTRLEN);
-    s->cl += sprintf(s->c + s->cl, "\tmovbp\t%d -> %s\n", offset, s->reg_names[reg]);
-    //reg_free(s, temp);
+    s->cl += sprintf(s->c + s->cl, "\tmovbp%c\t%d -> %s\n", get_suffix(varsize(v)), offset, s->reg_names[reg]);
     return reg;
 }
 
 int cgstorelocal(CGState *s, int reg, char *ident) {
-    //int temp = reg_alloc(s);
     int offset = sym_find_from_str(s->table, ident)->stack_offset;
+    VarType v  = sym_find_from_str(s->table, ident)->ty;
 
     if (s->debug) {
         state_alloc_atleast(s, 36 + REGSTRLEN + strlen(ident));
         s->cl += sprintf(s->c + s->cl, "\n\t; Storing %s into local variable '%s'\n", s->reg_names[reg], ident);
     }
-    //state_alloc_atleast(s, 34 + REGSTRLEN * 4 + MAXINTSTRLEN);
-    //s->cl += sprintf(s->c + s->cl, "\tmov\trbp -> %s\n",  s->reg_names[temp]);
-    //s->cl += sprintf(s->c + s->cl, "\taddi\t%s, %d\n",    s->reg_names[temp], offset);
-    //s->cl += sprintf(s->c + s->cl, "\tdrefw\t%s -> %s\n", s->reg_names[reg], s->reg_names[temp]);
-    //reg_free(s, temp);
     state_alloc_atleast(s, 12 + MAXINTSTRLEN + REGSTRLEN);
-    s->cl += sprintf(s->c + s->cl, "\tmovpb\t%s -> %d\n", s->reg_names[reg], offset);
+    s->cl += sprintf(s->c + s->cl, "\tmovpb%c\t%s -> %d\n", get_suffix(varsize(v)), s->reg_names[reg], offset);
     return -1;
 }
 
@@ -275,8 +279,9 @@ int cgfunc(CGState *s, AST *ast) {
     char *label = sym_find(s->table, ident);
     Symbol *sym = sym_find_from_str(s->table, label);
     int num_vars = ast->children[0]->scope->curr_stack_offset;
-    state_alloc_atleast(s, 40 + strlen(label) + MAXINTSTRLEN);
-    s->cl += sprintf(s->c + s->cl, "%s:\n\tpush\trbp\n\tmov\trsp -> rbp\n\taddi\trsp, %d\n", label, num_vars);
+    char suffix = get_suffix(varsize(sym->ty));
+    state_alloc_atleast(s, 41 + strlen(label) + MAXINTSTRLEN);
+    s->cl += sprintf(s->c + s->cl, "%s:\n\tpush%c\trbp\n\tmov\trsp -> rbp\n\taddi\trsp, %d\n", label, suffix, num_vars);
 
     /*
     int t1_r = reg_alloc(s);
@@ -311,11 +316,12 @@ int cgfunc(CGState *s, AST *ast) {
     if (sym->ty != VAR_VOID) {
         state_alloc_atleast(s, 32 + MAXINTSTRLEN + REGSTRLEN);
         int reg = reg_alloc(s);
-        s->cl += sprintf(s->c + s->cl, "%s:\n\tpop\t%s\n\tsubi\trsp, %d\n\tpop\trbp\n\tpush\t%s\n\tret\n", s->func_ret_jump, s->reg_names[reg], num_vars, s->reg_names[reg]);
+        char suffix = get_suffix(varsize(sym->ty));
+        s->cl += sprintf(s->c + s->cl, "%s:\n\tpop%c\t%s\n\tsubi\trsp, %d\n\tpopq\trbp\n\tpush%c\t%s\n\tret\n", s->func_ret_jump, suffix, s->reg_names[reg], num_vars, suffix, s->reg_names[reg]);
         reg_free(s, reg);
     } else {
         state_alloc_atleast(s, 26 + MAXINTSTRLEN);
-        s->cl += sprintf(s->c + s->cl, "%s:\n\tsubi\trsp, %d\n\tpop\trbp\n\tret\n", s->func_ret_jump, num_vars);
+        s->cl += sprintf(s->c + s->cl, "%s:\n\tsubi\trsp, %d\n\tpopq\trbp\n\tret\n", s->func_ret_jump, num_vars);
     }
     s->func_ret_jump = NULL;
     return -1;

@@ -65,7 +65,7 @@ int varsize(VarType ty) {
         case VAR_VOID: return 0;
         case VAR_ENUM: return 4;
         case VAR_LONG: return 4;
-        case VAR_SHORT: return 1;
+        case VAR_SHORT: return 2;
         case VAR_NONE: return 0;
     }
 }
@@ -386,12 +386,10 @@ AST *whilesmt(LexTokenStream *s, SymTable *scope) {
 AST *forsmt(LexTokenStream *s, SymTable *scope) {
     lex_consume_assert(s, TOK_KFOR);
     lex_consume_assert(s, TOK_OPAREN);
-    printf("for no1\n");
     AST *init = statement(s, scope);
     lex_consume_assert(s, TOK_SEMICOLON);
     AST *cond = expr(s, scope);
     lex_consume_assert(s, TOK_SEMICOLON);
-    printf("for no2\n");
     AST *iter = statement(s, scope);
     lex_consume_assert(s, TOK_CPAREN);
     AST *body = compoundsmt(s, scope);
@@ -524,6 +522,8 @@ AST *func_def(LexTokenStream *s, SymTable *scope) {
     sig.argtypes = malloc(sizeof(VarType) * 64);
     sig.numargs = 0;
     int cap = 64;
+
+    int curr_stack_offset = 0;
     
     struct ASTList lst;
     ast_list_init(&lst);
@@ -539,7 +539,8 @@ AST *func_def(LexTokenStream *s, SymTable *scope) {
             case TOK_KSHORT: {
                 LexToken *ident = lex_consume_assert(s, TOK_IDENT);
                 Symbol *sym = sym_stack_new(inside_scope, ident->str, asttovar(lextoast(type->type)));
-                sym->stack_offset = -(sig.numargs + 2) * 4;
+                curr_stack_offset += varsize(asttovar(lextoast(type->type)));
+                sym->stack_offset = -(curr_stack_offset + 4);
 
                 ast_list_append(&lst, ast_construct(NULL, 0, AST_ARG, sym->ident, VAR_NONE));
                 sig.argtypes[sig.numargs++] = asttovar(lextoast(type->type));

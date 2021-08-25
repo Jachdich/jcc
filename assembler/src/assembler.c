@@ -53,7 +53,12 @@ int is_reg(char *str) {
 }
 
 int is_twobyte(uint8_t opcode) {
-    return opcode == 0x02 || opcode == 0x03 || opcode == 0x0f || opcode == 0x11 || opcode == 0x13 || opcode == 0x14 || opcode == 0x15 || opcode == 0x1B;
+    return opcode == 0x02 || opcode == 0x03 || opcode == 0x0f || opcode == 0x11 || opcode == 0x13 || opcode == 0x14 || opcode == 0x15 || opcode == 0x1B
+        || opcode == 0x2B || opcode == 0x2C || opcode == 0x2D || opcode == 0x2E;
+}
+
+int MAX(int a, int b) {
+    return a > b ? a : b;
 }
 
 uint8_t get_opcode(char **str) {
@@ -67,41 +72,57 @@ uint8_t get_opcode(char **str) {
     //(*str)++;
     while (issep(**str)) (*str)++;
     //printf("%s\n", init);
-    if (strncmp(init, "mov",  sz)  == 0) return 0x00;
-    if (strncmp(init, "movi", sz) == 0) return 0x01;
-    if (strncmp(init, "jz",   sz) == 0) return 0x02;
-    if (strncmp(init, "jp",   sz) == 0) return 0x03;
-    if (strncmp(init, "out",  sz) == 0) return 0x04;
-    if (strncmp(init, "add",  sz) == 0) return 0x05;
-    if (strncmp(init, "addi", sz) == 0) return 0x06;
-    if (strncmp(init, "sub",  sz) == 0) return 0x07;
-    if (strncmp(init, "subi", sz) == 0) return 0x08;
-    if (strncmp(init, "mul",  sz) == 0) return 0x09;
-    if (strncmp(init, "muli", sz) == 0) return 0x0a;
-    if (strncmp(init, "div",  sz) == 0) return 0x0b;
-    if (strncmp(init, "divi", sz) == 0) return 0x0c;
-    if (strncmp(init, "mod",  sz) == 0) return 0x0d;
-    if (strncmp(init, "modi", sz) == 0) return 0x0e;
-    if (strncmp(init, "movl", sz) == 0) return 0x0f;
-    if (strncmp(init, "halt", sz) == 0) return 0x10;
-    if (strncmp(init, "call", sz) == 0) return 0x11;
-    if (strncmp(init, "ret",  sz) == 0) return 0x12;
-    if (strncmp(init, "movra",sz) == 0) return 0x13;
-    if (strncmp(init, "movar",sz) == 0) return 0x14;
-    if (strncmp(init, "jnz",  sz) == 0) return 0x15;
-    if (strncmp(init, "cmp",  sz) == 0) return 0x16;
-    if (strncmp(init, "lt",   sz) == 0) return 0x17;
-    if (strncmp(init, "lte",  sz) == 0) return 0x18;
-    if (strncmp(init, "gt",   sz) == 0) return 0x19;
-    if (strncmp(init, "gte",  sz) == 0) return 0x1A;
-    if (strncmp(init, "alloc",sz) == 0) return 0x1B;
-    if (strncmp(init, "free", sz) == 0) return 0x1C;
-    if (strncmp(init, "drefr",sz) == 0) return 0x1D;
-    if (strncmp(init, "drefw",sz) == 0) return 0x1E;
-    if (strncmp(init, "push", sz) == 0) return 0x1F;
-    if (strncmp(init, "pop",  sz) == 0) return 0x20;
-    if (strncmp(init, "movbp",sz) == 0) return 0x21;
-    if (strncmp(init, "movpb",sz) == 0) return 0x22;
+    if (strncmp(init, "mov",   MAX(sz, 3)) == 0) return 0x00;
+    if (strncmp(init, "movi",  MAX(sz, 4)) == 0) return 0x01;
+    if (strncmp(init, "jz",    MAX(sz, 2)) == 0) return 0x02;
+    if (strncmp(init, "jp",    MAX(sz, 2)) == 0) return 0x03;
+    if (strncmp(init, "out",   MAX(sz, 3)) == 0) return 0x04;
+    if (strncmp(init, "add",   MAX(sz, 3)) == 0) return 0x05;
+    if (strncmp(init, "addi",  MAX(sz, 4)) == 0) return 0x06;
+    if (strncmp(init, "sub",   MAX(sz, 3)) == 0) return 0x07;
+    if (strncmp(init, "subi",  MAX(sz, 4)) == 0) return 0x08;
+    if (strncmp(init, "mul",   MAX(sz, 3)) == 0) return 0x09;
+    if (strncmp(init, "muli",  MAX(sz, 4)) == 0) return 0x0a;
+    if (strncmp(init, "div",   MAX(sz, 3)) == 0) return 0x0b;
+    if (strncmp(init, "divi",  MAX(sz, 4)) == 0) return 0x0c;
+    if (strncmp(init, "mod",   MAX(sz, 3)) == 0) return 0x0d;
+    if (strncmp(init, "modi",  MAX(sz, 4)) == 0) return 0x0e;
+    if (strncmp(init, "movl",  MAX(sz, 4)) == 0) return 0x0f;
+    if (strncmp(init, "halt",  MAX(sz, 4)) == 0) return 0x10;
+    if (strncmp(init, "call",  MAX(sz, 4)) == 0) return 0x11;
+    if (strncmp(init, "ret",   MAX(sz, 3)) == 0) return 0x12;
+    if (strncmp(init, "movrab",MAX(sz, 6)) == 0) return 0x13;
+    if (strncmp(init, "movarb",MAX(sz, 6)) == 0) return 0x14;
+    if (strncmp(init, "jnz",   MAX(sz, 3)) == 0) return 0x15;
+    if (strncmp(init, "cmp",   MAX(sz, 3)) == 0) return 0x16;
+    if (strncmp(init, "lt",    MAX(sz, 2)) == 0) return 0x17;
+    if (strncmp(init, "lte",   MAX(sz, 3)) == 0) return 0x18;
+    if (strncmp(init, "gt",    MAX(sz, 2)) == 0) return 0x19;
+    if (strncmp(init, "gte",   MAX(sz, 3)) == 0) return 0x1A;
+    if (strncmp(init, "alloc", MAX(sz, 5)) == 0) return 0x1B;
+    if (strncmp(init, "free",  MAX(sz, 4)) == 0) return 0x1C;
+    if (strncmp(init, "drefrb",MAX(sz, 6)) == 0) return 0x1D;
+    if (strncmp(init, "drefwb",MAX(sz, 6)) == 0) return 0x1E;
+    if (strncmp(init, "pushb", MAX(sz, 5)) == 0) return 0x1F;
+    if (strncmp(init, "popb",  MAX(sz, 4)) == 0) return 0x20;
+    if (strncmp(init, "movbpb",MAX(sz, 6)) == 0) return 0x21;
+    if (strncmp(init, "movpbb",MAX(sz, 6)) == 0) return 0x22;
+    if (strncmp(init, "movbpd",MAX(sz, 6)) == 0) return 0x23;
+    if (strncmp(init, "movpbd",MAX(sz, 6)) == 0) return 0x24;
+    if (strncmp(init, "movbpq",MAX(sz, 6)) == 0) return 0x25;
+    if (strncmp(init, "movpbq",MAX(sz, 6)) == 0) return 0x26;
+    if (strncmp(init, "drefrd",MAX(sz, 6)) == 0) return 0x27;
+    if (strncmp(init, "drefwd",MAX(sz, 6)) == 0) return 0x28;
+    if (strncmp(init, "drefrq",MAX(sz, 6)) == 0) return 0x29;
+    if (strncmp(init, "drefwq",MAX(sz, 6)) == 0) return 0x2A;
+    if (strncmp(init, "movrad",MAX(sz, 6)) == 0) return 0x2B;
+    if (strncmp(init, "movard",MAX(sz, 6)) == 0) return 0x2C;
+    if (strncmp(init, "movraq",MAX(sz, 6)) == 0) return 0x2D;
+    if (strncmp(init, "movarq",MAX(sz, 6)) == 0) return 0x2E;
+    if (strncmp(init, "pushd", MAX(sz, 5)) == 0) return 0x2F;
+    if (strncmp(init, "popd",  MAX(sz, 4)) == 0) return 0x30;
+    if (strncmp(init, "pushq", MAX(sz, 5)) == 0) return 0x31;
+    if (strncmp(init, "popq",  MAX(sz, 4)) == 0) return 0x32;
     printf("Unknown opcode %s\n", init);
     return -1;
 }
@@ -222,7 +243,7 @@ int args_assert(Arg *args, ArgType a, ArgType b, ArgType c, int linenum, char *l
         if (args[i].t != tys[i]) {
             if (args[i].t == AT_INT && tys[i] == AT_LABEL) {
                 fprintf(stderr, "%d: %s\nWarning: integer constant used when label was expected\n\n", linenum, line);
-            } else if (tys[i] == AT_INT && tys[i] == AT_LABEL) {
+            } else if (tys[i] == AT_INT && args[i].t == AT_LABEL) {
                 fprintf(stderr, "%d: %s\nWarning: label used when integer constant was expected\n\n", linenum, line);
             } else {
                 fprintf(stderr, "%d: %s\nError: Expected %s, got %s instead\n",
@@ -271,6 +292,22 @@ int args_match(uint8_t opcode, Arg *args, int linenum, char *line) {
         case 0x20: return args_assert(args, AT_REG,   AT_NONE,  AT_NONE, linenum, line);
         case 0x21: return args_assert(args, AT_INT,   AT_REG,   AT_NONE, linenum, line);
         case 0x22: return args_assert(args, AT_REG,   AT_INT,   AT_NONE, linenum, line);
+        case 0x23: return args_assert(args, AT_INT,   AT_REG,   AT_NONE, linenum, line);
+        case 0x24: return args_assert(args, AT_REG,   AT_INT,   AT_NONE, linenum, line);
+        case 0x25: return args_assert(args, AT_INT,   AT_REG,   AT_NONE, linenum, line);
+        case 0x26: return args_assert(args, AT_REG,   AT_INT,   AT_NONE, linenum, line);
+        case 0x27: return args_assert(args, AT_REG,   AT_REG,   AT_NONE, linenum, line);
+        case 0x28: return args_assert(args, AT_REG,   AT_REG,   AT_NONE, linenum, line);
+        case 0x29: return args_assert(args, AT_REG,   AT_REG,   AT_NONE, linenum, line);
+        case 0x2A: return args_assert(args, AT_REG,   AT_REG,   AT_NONE, linenum, line);
+        case 0x2B: return args_assert(args, AT_REG,   AT_LABEL, AT_NONE, linenum, line);
+        case 0x2C: return args_assert(args, AT_LABEL, AT_REG,   AT_NONE, linenum, line);
+        case 0x2D: return args_assert(args, AT_REG,   AT_LABEL, AT_NONE, linenum, line);
+        case 0x2E: return args_assert(args, AT_LABEL, AT_REG,   AT_NONE, linenum, line);
+        case 0x2F: return args_assert(args, AT_REG,   AT_NONE,  AT_NONE, linenum, line);
+        case 0x30: return args_assert(args, AT_REG,   AT_NONE,  AT_NONE, linenum, line);
+        case 0x31: return args_assert(args, AT_REG,   AT_NONE,  AT_NONE, linenum, line);
+        case 0x32: return args_assert(args, AT_REG,   AT_NONE,  AT_NONE, linenum, line);
         default:
             fprintf(stderr, "Bug: Unrecognised opcode %02x\n", opcode);
             return 0;
@@ -431,7 +468,7 @@ size_t reorder_args(uint8_t **code_ptr, Instr *instrs, size_t num_instrs, size_t
         Instr in = instrs[i];
         Arg *a = in.args;
         code[pos++] = in.opcode;
-        printf("LIT: %02x %02x %02x %02x\n", in.opcode, a[0].i, a[1].i, a[2].i);
+        //printf("LIT: %02x %02x %02x %02x\n", in.opcode, a[0].i, a[1].i, a[2].i);
         if (in.is_lit) {
             code[pos++] = a[0].i;
             code[pos++] = a[1].i;
@@ -476,6 +513,22 @@ size_t reorder_args(uint8_t **code_ptr, Instr *instrs, size_t num_instrs, size_t
                 case 0x20: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0; break;
                 case 0x21: code[pos++] = a[1].i; writeshort(code, &pos, a[0].i); break;
                 case 0x22: code[pos++] = a[0].i; writeshort(code, &pos, a[1].i); break;
+                case 0x23: code[pos++] = a[1].i; writeshort(code, &pos, a[0].i); break;
+                case 0x24: code[pos++] = a[0].i; writeshort(code, &pos, a[1].i); break;
+                case 0x25: code[pos++] = a[1].i; writeshort(code, &pos, a[0].i); break;
+                case 0x26: code[pos++] = a[0].i; writeshort(code, &pos, a[1].i); break;
+                case 0x27: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = 0; break;
+                case 0x28: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = 0; break;
+                case 0x29: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = 0; break;
+                case 0x2A: code[pos++] = a[0].i; code[pos++] = a[1].i; code[pos++] = 0; break;
+                case 0x2B: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0; writeqword(code, &pos, a[1].i); break;
+                case 0x2C: code[pos++] = a[1].i; code[pos++] = 0; code[pos++] = 0; writeqword(code, &pos, a[0].i); break;
+                case 0x2D: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0; writeqword(code, &pos, a[1].i); break;
+                case 0x2E: code[pos++] = a[1].i; code[pos++] = 0; code[pos++] = 0; writeqword(code, &pos, a[0].i); break;
+                case 0x2F: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0; break;
+                case 0x30: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0; break;
+                case 0x31: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0; break;
+                case 0x32: code[pos++] = a[0].i; code[pos++] = 0; code[pos++] = 0; break;
                 default: break;
             }
         }

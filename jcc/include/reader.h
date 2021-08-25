@@ -12,6 +12,7 @@ typedef struct Reader Reader;
 int reader_construct(Reader *r, char *fname);
 int reader_construct_from(Reader *r, char *buf);
 char reader_peek(Reader *r);
+char reader_peek_n(Reader *r, int n);
 char reader_consume(Reader *r);
 char *reader_read_line(Reader *r);
 void reader_free(Reader *r);

@@ -48,7 +48,9 @@ char get_suffix(int sz) {
             return 'q';
         default:
             printf("Something trued to use size of %d\n", sz);
-            exit(1);
+            //cause a segfault so I can get a trace on what called this func
+            char *a = 0x0;
+            *a = 1;
     }
 }
 
@@ -279,9 +281,9 @@ int cgfunc(CGState *s, AST *ast) {
     char *label = sym_find(s->table, ident);
     Symbol *sym = sym_find_from_str(s->table, label);
     int num_vars = ast->children[0]->scope->curr_stack_offset;
-    char suffix = get_suffix(varsize(sym->ty));
+    //char suffix = get_suffix(varsize(sym->ty));
     state_alloc_atleast(s, 41 + strlen(label) + MAXINTSTRLEN);
-    s->cl += sprintf(s->c + s->cl, "%s:\n\tpush%c\trbp\n\tmov\trsp -> rbp\n\taddi\trsp, %d\n", label, suffix, num_vars);
+    s->cl += sprintf(s->c + s->cl, "%s:\n\tpushq\trbp\n\tmov\trsp -> rbp\n\taddi\trsp, %d\n", label, num_vars);
 
     /*
     int t1_r = reg_alloc(s);
@@ -343,10 +345,11 @@ int cgfunccall(CGState *s, int ident, size_t n_args) {
     return reg;
 }
 
-int cgsetupargs(CGState *s, int *regs, size_t num) {
+int cgsetupargs(CGState *s, int *regs, size_t num, VarType *tys) {
     for (int i = num - 1; i >= 0; i--) {
-        state_alloc_atleast(s, 7 + REGSTRLEN);
-        s->cl += sprintf(s->c + s->cl, "\tpush\t%s\n", s->reg_names[regs[i]]);
+        char suffix = tys[num];
+        state_alloc_atleast(s, 8 + REGSTRLEN);
+        s->cl += sprintf(s->c + s->cl, "\tpush%c\t%s\n", suffix, s->reg_names[regs[i]]);
     }
     return -1;
 }
@@ -359,7 +362,8 @@ int cgret(CGState *s, int reg) {
 
 int gen_ast(AST *ast, CGState *state, int reg) {
     SymTable *tab = ast->scope;
-    SymTable *orig = state->table;    if (tab != NULL) {
+    SymTable *orig = state->table;
+    if (tab != NULL) {
         state->table = tab;
     }
     
@@ -374,9 +378,12 @@ int gen_ast(AST *ast, CGState *state, int reg) {
     }
 
     int *ch_regs;
+    VarType *ch_types;
     if (ast->children_n > 0) {
         ch_regs = malloc(sizeof(int) * ast->children_n);
+        ch_types = malloc(sizeof(int) * ast->children_n);
         for (size_t i = 0; i < ast->children_n; i++) {
+           ch_types[i] = ast->children[i]->vartype;
            ch_regs[i] = gen_ast(ast->children[i], state, i > 0 ? ch_regs[i - 1] : -1);
         }
     }
@@ -400,7 +407,7 @@ int gen_ast(AST *ast, CGState *state, int reg) {
         case AST_ASSIGN: res = ch_regs[0]; break;
         case AST_KPRINT: cgprintint(state, ch_regs[0]); break;
         case AST_FUNCCALL: res = cgfunccall(state, ast->i, ast->children[0]->children_n); break;
-        case AST_ARGLIST:  res = cgsetupargs(state, ch_regs, ast->children_n); break;
+        case AST_ARGLIST:  res = cgsetupargs(state, ch_regs, ast->children_n, ch_types); break;
         case AST_KRETURN: res = cgret(state, ch_regs[0]); break;
         default:
             fprintf(stderr, "Error: unrecognised token '%s'\n", asttypetostr(ast->type));

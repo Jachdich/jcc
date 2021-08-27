@@ -347,7 +347,7 @@ int cgfunccall(CGState *s, int ident, size_t n_args) {
 
 int cgsetupargs(CGState *s, int *regs, size_t num, VarType *tys) {
     for (int i = num - 1; i >= 0; i--) {
-        char suffix = tys[num];
+        char suffix = get_suffix(varsize(tys[i]));
         state_alloc_atleast(s, 8 + REGSTRLEN);
         s->cl += sprintf(s->c + s->cl, "\tpush%c\t%s\n", suffix, s->reg_names[regs[i]]);
     }

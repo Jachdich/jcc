@@ -87,12 +87,12 @@ AST *ast_construct_with_scope(AST **children, size_t children_n, ASTType type, s
     return ast;
 }
 
-VarType min_int_size(size_t i) {
-    if (i < 256) {
+VarType min_int_size(ssize_t i) {
+    if (i < 256 && i > -129) {
         return VAR_CHAR;
-    } else if (i < 65536) {
+    } else if (i < 65536 && i > -32769) {
         return VAR_SHORT;
-    } else if (i < 4294967296) {
+    } else if (i < 4294967296 && i > -(4294967296 / 2 + 1)) {
         return VAR_INT;
     } else {
         return VAR_LONG;
@@ -109,6 +109,10 @@ VarType combine_types(VarType a, VarType b) {
         *a = 1;
     }
 
+    if (varsize(a) < varsize(b)) {
+        fprintf(stderr, "Error: narrowing conversion\n");
+        exit(1);
+    }
     //fuck off I'll fix it later
     return VAR_INT;
 }
@@ -413,6 +417,9 @@ int is_sig_compatible(struct FuncSig func, struct FuncSig caller) {
     if (func.numargs != caller.numargs) {
         return 0;
     }
+    for (int i = 0; i < func.numargs; i++) {
+        combine_types(func.argtypes[i], caller.argtypes[i]);
+    }
     return 1;
 }
 
@@ -661,12 +668,25 @@ const char *asttypetostr(ASTType ty) {
     return "(AST TOKEN NOT RECOGNISED)";
 }
 
+const char *vartostr(VarType ty) {
+    switch (ty) {
+        case VAR_INT: return "int";
+        case VAR_CHAR: return "char";
+        case VAR_LONG: return "long";
+        case VAR_SHORT: return "short";
+        case VAR_VOID: return "void";
+        case VAR_STRUCT: return "struct";
+        case VAR_ENUM: return "enum";
+        case VAR_NONE: return "none";
+    }
+}
+
 void ast_print_internal(AST *ast, int n) {
     const char *type = asttypetostr(ast->type);
     for (int i = 0; i < n; i++) {
         printf("    ");
     }
-    printf("%s %lu\n", type, ast->i);
+    printf("%s %lu %s\n", type, ast->i, vartostr(ast->vartype));
     for (size_t i = 0; i < ast->children_n; i++) {
         ast_print_internal(ast->children[i], n + 1);
     }

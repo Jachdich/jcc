@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../include/reader.h"
+#include <jtools/reader.h>
 #include "../include/lexer.h"
 #include "../include/preprocessor.h"
 #include "../include/parser.h"

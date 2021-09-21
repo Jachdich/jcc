@@ -1,13 +1,14 @@
-SOURCES := $(shell find src -type f -name *.c)
-HEADERS := $(shell find include -type f -name *.h)
+SOURCES := $(shell find src -type f -name "*.c")
+HEADERS := $(shell find include -type f -name "*.h")
 OBJECTS := $(patsubst src/%,obj/%,$(SOURCES:.c=.o))
 
 jcc: $(OBJECTS)
-	gcc $(OBJECTS) -ljas -ljobj -o $@
+	@echo $(SOURCES)
+	gcc $(OBJECTS) -ljas -ljtools -o $@
 
 obj/%.o: src/%.c $(HEADERS) $(ASMHEADERS)
 	@mkdir -p obj
-	gcc -c -o $@ $< -Wall -gdwarf-3 -Iinclude -I../assembler/include
+	gcc -c -o $@ $< -Wall -gdwarf-3 -Iinclude
 
 debug: jcc
 	gdb jcc
@@ -22,8 +23,8 @@ runprog: jcc test.jc
 	jvm test
 
 clean:
-	rm obj/*.o
-	rm jcc
+	rm -rf obj/*.o
+	rm -rf jcc
 
 install: jcc
 	cp jcc /usr/local/bin

@@ -1,6 +1,6 @@
 #ifndef __LEXER_H
 #define __LEXER_H
-#include "../include/reader.h"
+#include <jtools/reader.h>
 #include "../include/error.h"
 #include <stdint.h>
 

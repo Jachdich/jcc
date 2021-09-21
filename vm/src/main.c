@@ -4,6 +4,8 @@
 
 #define SP_POS 16
 #define BP_POS 17
+#define SETBITS   0x80000000
+#define UNSETBITS 0x7FFFFFFF
 
 struct Machine {
     ssize_t regs[18];
@@ -90,17 +92,16 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr, uint8_t *
     m->pcsp = 0;
     while ((unsigned)m->pc < ninstr) {
         struct Instruction instr = stream[m->pc++];
-        /*
-        printf("Pc: %02x, Regs: %08x %08x %08x %08x, opcode: %s %02x, %02x, %02x (%04x) (next qword %08x instr %08x) ",
+        /*printf("Pc: %02x, Regs: %08x %08x %08x %08x, opcode: %s %02x, %02x, %02x (%04x) (next qword %08x instr %08x) ",
                 m->pc, (int32_t)m->regs[0], (int32_t)m->regs[1], (int32_t)m->regs[2], (int32_t)m->regs[3],
                 op_name(instr.opcode), instr.arg1, instr.arg2, instr.arg3,
                 (signed)instr.arg23, *((int32_t*)(stream + m->pc)), *((int32_t*)(stream + m->pc)) / 4);
 
         for (int i = 0; i < 32; i++) {
-            if (((size_t)(stack + i) | 0x80000000) == (unsigned)m->regs[SP_POS]) {
+            if (((size_t)(stack + i) | SETBITS) == (unsigned)m->regs[SP_POS]) {
                 printf(underline);
             }
-            if (((size_t)(stack + i) | 0x80000000) == (unsigned)m->regs[BP_POS]) {
+            if (((size_t)(stack + i) | SETBITS) == (unsigned)m->regs[BP_POS]) {
                 printf(invert);
             }
             printf("%02x%s ", stack[i], reset);
@@ -108,7 +109,7 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr, uint8_t *
                 printf(" ");
             }
         }
-        printf("\n");*/
+        printf("BP, SP: %lu %lu\n", m->regs[SP_POS], m->regs[BP_POS]);*/
 
         switch (instr.opcode) {
             case 0x00: //mov
@@ -172,7 +173,7 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr, uint8_t *
             }
 
             case 0x14: { //movarb
-                uint32_t addr = *((uint32_t*)(stream + m->pc++));
+                size_t addr = *((uint32_t*)(stream + m->pc++));
                 //assume relative address since it is a constant
                 m->regs[instr.arg1] = *(uint8_t*)((uint8_t*)stream + addr);
                 break;
@@ -182,13 +183,13 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr, uint8_t *
             case 0x18: m->regs[instr.arg3] = m->regs[instr.arg1] <= m->regs[instr.arg2]; break;
             case 0x19: m->regs[instr.arg3] = m->regs[instr.arg1] >  m->regs[instr.arg2]; break;
             case 0x1A: m->regs[instr.arg3] = m->regs[instr.arg1] >= m->regs[instr.arg2]; break;
-            case 0x1B: m->regs[instr.arg1] = (int32_t)(size_t)malloc(*((uint32_t*)(stream + m->pc++))) | 0x80000000; break;
-            case 0x1C: free((void*)(size_t)(m->regs[instr.arg1] & 0x7FFFFFFF)); break;
+            case 0x1B: m->regs[instr.arg1] = (size_t)malloc(*((uint32_t*)(stream + m->pc++))) | SETBITS; break;
+            case 0x1C: free((void*)(size_t)(m->regs[instr.arg1] & UNSETBITS)); break;
             case 0x1D: { //drefrb
-                uint32_t addr = m->regs[instr.arg1];
-                if (addr & 0x80000000) {
+                size_t addr = m->regs[instr.arg1];
+                if (addr & SETBITS) {
                     //absolute address
-                    m->regs[instr.arg2] = *(uint8_t*)((size_t)addr & 0x7FFFFFFF);
+                    m->regs[instr.arg2] = *(uint8_t*)(addr & UNSETBITS);
                 } else {
                     //relative address
                     m->regs[instr.arg2] = *(uint8_t*)((uint8_t*)stream + addr);
@@ -197,10 +198,10 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr, uint8_t *
             }
 
             case 0x1E: { //drefwb
-                uint32_t addr = m->regs[instr.arg2];
-                if (addr & 0x80000000) {
+                size_t addr = m->regs[instr.arg2];
+                if (addr & SETBITS) {
                     //absolute address
-                    *(uint8_t*)((size_t)addr & 0x7FFFFFFF) = m->regs[instr.arg1];
+                    *(uint8_t*)((size_t)addr & UNSETBITS) = m->regs[instr.arg1];
                 } else {
                     //relative address
                     *(uint8_t*)((uint8_t*)stream + addr) = m->regs[instr.arg1];
@@ -208,8 +209,8 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr, uint8_t *
                 break;
             }
             case 0x1F: //pushb
-                if (m->regs[SP_POS] & 0x80000000) {
-                    *(uint8_t*)((size_t)m->regs[SP_POS] & 0x7FFFFFFF) = m->regs[instr.arg1];
+                if (m->regs[SP_POS] & SETBITS) {
+                    *(uint8_t*)((size_t)m->regs[SP_POS] & UNSETBITS) = m->regs[instr.arg1];
                     m->regs[SP_POS] += 4;
                 } else {
                     *(uint8_t*)((uint8_t*)stream + m->regs[SP_POS]) = m->regs[instr.arg1];
@@ -217,73 +218,73 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr, uint8_t *
                 }
                 break;
             case 0x20: //popb
-                if (m->regs[SP_POS] & 0x80000000) {
+                if (m->regs[SP_POS] & SETBITS) {
                     m->regs[SP_POS] -= 4;
-                    m->regs[instr.arg1] = *(uint8_t*)((size_t)m->regs[SP_POS] & 0x7FFFFFFF);
+                    m->regs[instr.arg1] = *(uint8_t*)((size_t)m->regs[SP_POS] & UNSETBITS);
                 } else {
                     m->regs[SP_POS] -= 4;
                     m->regs[instr.arg1] = *(uint8_t*)((uint8_t*)stream + m->regs[SP_POS]);
                 }
                 break;
             case 0x21: { //movbpb
-                uint32_t addr = (m->regs[BP_POS] + (signed)instr.arg23);
-                if (addr & 0x80000000) {
-                    m->regs[instr.arg1] = *(uint8_t*)(size_t)(addr & 0x7FFFFFFF);
+                size_t addr = (m->regs[BP_POS] + (signed)instr.arg23);
+                if (addr & SETBITS) {
+                    m->regs[instr.arg1] = *(uint8_t*)(size_t)(addr & UNSETBITS);
                 } else {
                     m->regs[instr.arg1] = *(uint8_t*)((uint8_t*)stream + addr);
                 }
                 break;
             }
             case 0x22: { //movpbb
-                uint32_t addr = (m->regs[BP_POS] + (signed)instr.arg23);
-                if (addr & 0x80000000) {
-                    *(uint8_t*)(size_t)(addr & 0x7FFFFFFF) = m->regs[instr.arg1];
+                size_t addr = (m->regs[BP_POS] + (signed)instr.arg23);
+                if (addr & SETBITS) {
+                    *(uint8_t*)(size_t)(addr & UNSETBITS) = m->regs[instr.arg1];
                 } else {
                     *(uint8_t*)((uint8_t*)stream + addr) = m->regs[instr.arg1];
                 }
                 break;
             }
             case 0x23: { //movbpd
-                uint32_t addr = (m->regs[BP_POS] + (signed)instr.arg23);
-                if (addr & 0x80000000) {
-                    m->regs[instr.arg1] = *(uint16_t*)(size_t)(addr & 0x7FFFFFFF);
+                size_t addr = (m->regs[BP_POS] + (signed)instr.arg23);
+                if (addr & SETBITS) {
+                    m->regs[instr.arg1] = *(uint16_t*)(size_t)(addr & UNSETBITS);
                 } else {
                     m->regs[instr.arg1] = *(uint16_t*)((uint8_t*)stream + addr);
                 }
                 break;
             }
             case 0x24: { //movpbd
-                uint32_t addr = (m->regs[BP_POS] + (signed)instr.arg23);
-                if (addr & 0x80000000) {
-                    *(uint16_t*)(size_t)(addr & 0x7FFFFFFF) = m->regs[instr.arg1];
+                size_t addr = (m->regs[BP_POS] + (signed)instr.arg23);
+                if (addr & SETBITS) {
+                    *(uint16_t*)(size_t)(addr & UNSETBITS) = m->regs[instr.arg1];
                 } else {
                     *(uint16_t*)((uint8_t*)stream + addr) = m->regs[instr.arg1];
                 }
                 break;
             }
             case 0x25: { //movbpq
-                uint32_t addr = (m->regs[BP_POS] + (signed)instr.arg23);
-                if (addr & 0x80000000) {
-                    m->regs[instr.arg1] = *(uint32_t*)(size_t)(addr & 0x7FFFFFFF);
+                size_t addr = (m->regs[BP_POS] + (signed)instr.arg23);
+                if (addr & SETBITS) {
+                    m->regs[instr.arg1] = *(uint32_t*)(size_t)(addr & UNSETBITS);
                 } else {
                     m->regs[instr.arg1] = *(uint32_t*)((uint8_t*)stream + addr);
                 }
                 break;
             }
             case 0x26: { //movpbq
-                uint32_t addr = (m->regs[BP_POS] + (signed)instr.arg23);
-                if (addr & 0x80000000) {
-                    *(uint32_t*)(size_t)(addr & 0x7FFFFFFF) = m->regs[instr.arg1];
+                size_t addr = (m->regs[BP_POS] + (signed)instr.arg23);
+                if (addr & SETBITS) {
+                    *(uint32_t*)(size_t)(addr & UNSETBITS) = m->regs[instr.arg1];
                 } else {
                     *(uint32_t*)((uint8_t*)stream + addr) = m->regs[instr.arg1];
                 }
                 break;
             }
             case 0x27: { //drefrd
-                uint32_t addr = m->regs[instr.arg1];
-                if (addr & 0x80000000) {
+                size_t addr = m->regs[instr.arg1];
+                if (addr & SETBITS) {
                     //absolute address
-                    m->regs[instr.arg2] = *(uint16_t*)((size_t)addr & 0x7FFFFFFF);
+                    m->regs[instr.arg2] = *(uint16_t*)((size_t)addr & UNSETBITS);
                 } else {
                     //relative address
                     m->regs[instr.arg2] = *(uint16_t*)((uint8_t*)stream + addr);
@@ -292,10 +293,10 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr, uint8_t *
             }
 
             case 0x28: { //drefwd
-                uint32_t addr = m->regs[instr.arg2];
-                if (addr & 0x80000000) {
+                size_t addr = m->regs[instr.arg2];
+                if (addr & SETBITS) {
                     //absolute address
-                    *(uint16_t*)((size_t)addr & 0x7FFFFFFF) = m->regs[instr.arg1];
+                    *(uint16_t*)((size_t)addr & UNSETBITS) = m->regs[instr.arg1];
                 } else {
                     //relative address
                     *(uint16_t*)((uint8_t*)stream + addr) = m->regs[instr.arg1];
@@ -303,10 +304,10 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr, uint8_t *
                 break;
             }
             case 0x29: { //drefrq
-                uint32_t addr = m->regs[instr.arg1];
-                if (addr & 0x80000000) {
+                size_t addr = m->regs[instr.arg1];
+                if (addr & SETBITS) {
                     //absolute address
-                    m->regs[instr.arg2] = *(uint32_t*)((size_t)addr & 0x7FFFFFFF);
+                    m->regs[instr.arg2] = *(uint32_t*)((size_t)addr & UNSETBITS);
                 } else {
                     //relative address
                     m->regs[instr.arg2] = *(uint32_t*)((uint8_t*)stream + addr);
@@ -315,10 +316,10 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr, uint8_t *
             }
 
             case 0x2A: { //drefwq
-                uint32_t addr = m->regs[instr.arg2];
-                if (addr & 0x80000000) {
+                size_t addr = m->regs[instr.arg2];
+                if (addr & SETBITS) {
                     //absolute address
-                    *(uint32_t*)((size_t)addr & 0x7FFFFFFF) = m->regs[instr.arg1];
+                    *(uint32_t*)((size_t)addr & UNSETBITS) = m->regs[instr.arg1];
                 } else {
                     //relative address
                     *(uint32_t*)((uint8_t*)stream + addr) = m->regs[instr.arg1];
@@ -326,32 +327,32 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr, uint8_t *
                 break;
             }
             case 0x2B: { //movrab
-                uint32_t addr = *((uint32_t*)(stream + m->pc++));
+                size_t addr = *((uint32_t*)(stream + m->pc++));
                 *(uint16_t*)((uint8_t*)stream + addr) = m->regs[instr.arg1];
                 break;
             }
 
             case 0x2C: { //movarb
-                uint32_t addr = *((uint32_t*)(stream + m->pc++));
+                size_t addr = *((uint32_t*)(stream + m->pc++));
                 //assume relative address since it is a constant
                 m->regs[instr.arg1] = *(uint16_t*)((uint8_t*)stream + addr);
                 break;
             }
             case 0x2D: { //movrab
-                uint32_t addr = *((uint32_t*)(stream + m->pc++));
+                size_t addr = *((uint32_t*)(stream + m->pc++));
                 *(uint32_t*)((uint8_t*)stream + addr) = m->regs[instr.arg1];
                 break;
             }
 
             case 0x2E: { //movarb
-                uint32_t addr = *((uint32_t*)(stream + m->pc++));
+                size_t addr = *((uint32_t*)(stream + m->pc++));
                 //assume relative address since it is a constant
                 m->regs[instr.arg1] = *(uint32_t*)((uint8_t*)stream + addr);
                 break;
             }
             case 0x2F: //pushd
-                if (m->regs[SP_POS] & 0x80000000) {
-                    *(uint16_t*)((size_t)m->regs[SP_POS] & 0x7FFFFFFF) = m->regs[instr.arg1];
+                if (m->regs[SP_POS] & SETBITS) {
+                    *(uint16_t*)((size_t)m->regs[SP_POS] & UNSETBITS) = m->regs[instr.arg1];
                     m->regs[SP_POS] += 4;
                 } else {
                     *(uint16_t*)((uint8_t*)stream + m->regs[SP_POS]) = m->regs[instr.arg1];
@@ -359,17 +360,17 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr, uint8_t *
                 }
                 break;
             case 0x30: //popd
-                if (m->regs[SP_POS] & 0x80000000) {
+                if (m->regs[SP_POS] & SETBITS) {
                     m->regs[SP_POS] -= 4;
-                    m->regs[instr.arg1] = *(uint16_t*)((size_t)m->regs[SP_POS] & 0x7FFFFFFF);
+                    m->regs[instr.arg1] = *(uint16_t*)((size_t)m->regs[SP_POS] & UNSETBITS);
                 } else {
                     m->regs[SP_POS] -= 4;
                     m->regs[instr.arg1] = *(uint16_t*)((uint8_t*)stream + m->regs[SP_POS]);
                 }
                 break;
             case 0x31: //pushq
-                if (m->regs[SP_POS] & 0x80000000) {
-                    *(uint32_t*)((size_t)m->regs[SP_POS] & 0x7FFFFFFF) = m->regs[instr.arg1];
+                if (m->regs[SP_POS] & SETBITS) {
+                    *(uint32_t*)((size_t)m->regs[SP_POS] & UNSETBITS) = m->regs[instr.arg1];
                     m->regs[SP_POS] += 4;
                 } else {
                     *(uint32_t*)((uint8_t*)stream + m->regs[SP_POS]) = m->regs[instr.arg1];
@@ -377,9 +378,9 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr, uint8_t *
                 }
                 break;
             case 0x32: //popq
-                if (m->regs[SP_POS] & 0x80000000) {
+                if (m->regs[SP_POS] & SETBITS) {
                     m->regs[SP_POS] -= 4;
-                    m->regs[instr.arg1] = *(uint32_t*)((size_t)m->regs[SP_POS] & 0x7FFFFFFF);
+                    m->regs[instr.arg1] = *(uint32_t*)((size_t)m->regs[SP_POS] & UNSETBITS);
                 } else {
                     m->regs[SP_POS] -= 4;
                     m->regs[instr.arg1] = *(uint32_t*)((uint8_t*)stream + m->regs[SP_POS]);
@@ -418,7 +419,7 @@ int main(int argc, char **argv) {
     for (uint8_t i = 0; i < 16; i++) {
         m.regs[i] = 0;
     }
-    m.regs[SP_POS] = (size_t)stack | 0x80000000;
+    m.regs[SP_POS] = ((size_t)stack) | SETBITS;
     m.regs[BP_POS] = m.regs[SP_POS];
     run(&m, instrs, ninstr, stack);
     free(contents);

@@ -1,10 +1,10 @@
 println:
-    push r0
-    push r1
+    pushq r0
+    pushq r1
     mov rsp -> r0
     subi r0, 12
     drefrq r0 -> r1
     out r1
-    pop r1
-    pop r2
+    popq r1
+    popq r2
     ret

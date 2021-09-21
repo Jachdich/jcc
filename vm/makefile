@@ -8,7 +8,7 @@ $(EXENAME): $(OBJECTS)
 
 obj/%.o: src/%.c $(HEADERS)
 	@mkdir -p obj
-	gcc -c -o $@ $< -Wall -O3 -Iinclude
+	gcc -c -o $@ $< -Wall -g -Iinclude
 
 debug: $(EXENAME)
 	gdb $(EXENAME)

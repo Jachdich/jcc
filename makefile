@@ -1,23 +1,23 @@
 all:
-	make -C libjobj/
-	make -C linker/
-	make -C vm/
-	make -C objdump/
-	make -C jcc/
-	make -C assembler/
+	+make -C libjtools/
+	+make -C jld/
+	+make -C jvm/
+	+make -C jobjdump/
+	+make -C jcc/
+	+make -C jas/
 
 install:
-	make -C libjobj/   install
-	make -C assembler/ install
-	make -C linker/    install
-	make -C vm/        install
-	make -C objdump/   install
-	make -C jcc/  	   install
+	+make -C libjtools/ install
+	+make -C jas/      install
+	+make -C jld/      install
+	+make -C jvm/      install
+	+make -C jobjdump/ install
+	+make -C jcc/  	  install
 
 clean:
-	make -C assembler/ clean
-	make -C linker/    clean
-	make -C vm/        clean
-	make -C objdump/   clean
-	make -C libjobj/   clean
-	make -C jcc/  	   clean
+	+make -C jas/      clean
+	+make -C jld/      clean
+	+make -C jvm/      clean
+	+make -C jobjdump/ clean
+	+make -C libjtools/  clean
+	+make -C jcc/  	  clean

@@ -1,4 +1,4 @@
-#include "../include/reader.h"
+#include <jtools/reader.h>
 #include "../include/lexer.h"
 #include <stdlib.h>
 #include <ctype.h>

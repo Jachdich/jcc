@@ -363,6 +363,16 @@ int cgret(CGState *s, int reg) {
     reg_free(s, reg);
 }
 
+int cgderef(int reg, CGState *s) {
+    state_alloc_atleast(s, 100); //TODO change
+    s->cl += sprintf(s->c + s->cl, "\tdrefrq\t%s -> %s\n", s->reg_names[reg], s->reg_names[reg]);
+    return reg;
+}
+
+int cgref(int reg, CGState *s) {
+    return -1;
+}
+
 int gen_ast(AST *ast, CGState *state, int reg) {
     SymTable *tab = ast->scope;
     SymTable *orig = state->table;
@@ -404,6 +414,8 @@ int gen_ast(AST *ast, CGState *state, int reg) {
         case AST_GTE:    res = cgmathop(ch_regs[0], ch_regs[1], CG_GTE, state); break;
         case AST_LT:     res = cgmathop(ch_regs[0], ch_regs[1], CG_LT, state); break;
         case AST_LTE:    res = cgmathop(ch_regs[0], ch_regs[1], CG_LTE, state); break;
+        case AST_DEREF:  res = cgderef(ch_regs[0], state); break;
+        case AST_REF:    res = cgref(ch_regs[0], state); break;
         case AST_INT_LIT:res = cgloadint(ast->i, state); break;
         case AST_IDENT:  res = cgloadvar(state, sym_find(state->table, ast->i)); break;
         case AST_LVIDENT:cgstorevar(state, reg, sym_find(state->table, ast->i)); break;

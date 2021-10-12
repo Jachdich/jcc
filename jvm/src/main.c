@@ -187,7 +187,7 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr, uint8_t *
             case 0x18: m->regs[instr.arg3] = m->regs[instr.arg1] <= m->regs[instr.arg2]; break;
             case 0x19: m->regs[instr.arg3] = m->regs[instr.arg1] >  m->regs[instr.arg2]; break;
             case 0x1A: m->regs[instr.arg3] = m->regs[instr.arg1] >= m->regs[instr.arg2]; break;
-            case 0x1B: m->regs[instr.arg1] = (size_t)malloc(*((uint32_t*)(stream + m->pc++))) | SETBITS; break;
+            case 0x1B: m->regs[instr.arg1] = (size_t)malloc(m->regs[instr.arg2]) | SETBITS; break;
             case 0x1C: free((void*)(size_t)(m->regs[instr.arg1] & UNSETBITS)); break;
             case 0x1D: { //drefrb
                 size_t addr = m->regs[instr.arg1];

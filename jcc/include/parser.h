@@ -31,6 +31,8 @@ enum ASTType {
     AST_OR,
     AST_OROR,
     AST_MODULO,
+    AST_DEREF,
+    AST_REF,
     
     AST_KINT,
     AST_KCHAR,

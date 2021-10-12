@@ -4,10 +4,10 @@
 #include <jtools/reader.h>
 #include "../include/lexer.h"
 #include "../include/preprocessor.h"
-#include "../include/parser.h"
-#include "../include/codegen.h"
+//#include "../include/parser.h"
+//#include "../include/codegen.h"
 #include "../include/args.h"
-#include "../include/symtable.h"
+//#include "../include/symtable.h"
 
 int main(int argc, char **argv) {
     Args args = parse_args(argc, argv);
@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
     printf("%s\n", src);
     free(src);
 
-    char *all_code = malloc(1024);
+    /*char *all_code = malloc(1024);
     size_t code_len = 0;
     size_t code_cap = 1024;
 
@@ -128,7 +128,7 @@ int main(int argc, char **argv) {
         fclose(fp);
     }
     
-    free(all_code);
+    free(all_code);*/
     lex_free(&s);
     reader_free(&preproc_r);
     return 0;

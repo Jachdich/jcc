@@ -9,20 +9,20 @@ enum LexTokenType {
     TOK_INT,
     TOK_STR_LIT,
     TOK_IDENT,
-    TOK_ADD,
-    TOK_SUB,
-    TOK_MUL,
-    TOK_DIV,
-    TOK_ASSIGN,
-    TOK_COMPARE,
+    TOK_PLUS,
+    TOK_MINUS,
+    TOK_STAR,
+    TOK_SLASH,
+    TOK_EQUALS,
+    TOK_EQUALSEQUALS,
     TOK_GT,
     TOK_LT,
     TOK_GTE,
     TOK_LTE,
-    TOK_ADD_ASSIGN,
-    TOK_SUB_ASSIGN,
-    TOK_MUL_ASSIGN,
-    TOK_DIV_ASSIGN,
+    TOK_PLUSEQUAL,
+    TOK_MINUSEQUAL,
+    TOK_STAREQUAL,
+    TOK_SLASHEQUAL,
     TOK_OPAREN,
     TOK_CPAREN,
     TOK_OBRACE,
@@ -34,8 +34,9 @@ enum LexTokenType {
     TOK_ANDAND,
     TOK_OR,
     TOK_OROR,
+    TOK_CARAT,
     TOK_MODULO,
-
+    
     TOK_KINT,
     TOK_KCHAR,
     TOK_KSTRUCT,
@@ -54,9 +55,6 @@ enum LexTokenType {
     TOK_KBREAK,
     TOK_KCONTINUE,
     TOK_KTYPEDEF,
-
-    //TEMP
-    TOK_KPRINT,
     
     TOK_EOF,
 };
@@ -68,6 +66,7 @@ struct LexToken {
     size_t i;
     LexTokenType type;
     int linenum;
+    char *whitespace;
 };
 
 typedef struct LexToken LexToken;

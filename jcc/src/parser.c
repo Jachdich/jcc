@@ -288,7 +288,7 @@ AST *addexpr(LexTokenStream *s, SymTable *scope) {
     return lhs;
 }
 
-AST *expr(LexTokenStream *s, SymTable *scope) {
+AST *binexpr(LexTokenStream *s, SymTable *scope) {
     AST *lhs = addexpr(s, scope);
     LexTokenType type = lex_peek(s)->type;
     while (type == TOK_COMPARE || type == TOK_GT || type == TOK_GTE || type == TOK_LT || type == TOK_LTE) {
@@ -301,6 +301,37 @@ AST *expr(LexTokenStream *s, SymTable *scope) {
         type = lex_peek(s)->type;
     }
     return lhs;
+}
+
+AST *unexpr(LexTokenStream *s, SymTable *scope) {
+    LexToken *oper = lex_consume(s);
+    AST *rhs = expr(s, scope);
+    AST **children = malloc(sizeof(*children) * 1);
+    children[0] = rhs;
+    ASTType ty;
+    switch (oper->type) {
+        case TOK_MUL:
+            ty = AST_DEREF;
+            break;
+        case TOK_AND:
+            ty = AST_REF;
+            break;
+        default: break;
+    }
+    return ast_construct(children, 1, ty, 0, VAR_INT);
+}
+
+AST *expr(LexTokenStream *s, SymTable *scope) {
+    LexToken *t = lex_peek(s);
+    switch (t->type) {
+        case TOK_MUL:
+        case TOK_AND:
+        case TOK_SUB:
+            return unexpr(s, scope);
+        default:
+            return binexpr(s, scope);
+    }
+    return NULL;
 }
 
 struct ASTList {

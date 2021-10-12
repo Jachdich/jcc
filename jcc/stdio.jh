@@ -1,4 +1,5 @@
 #ifndef __STDIO_H
 #define __STDIO_H
 void println(int n);
+int malloc(int sz);
 #endif

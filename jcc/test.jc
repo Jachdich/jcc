@@ -1,0 +1,7 @@
+int something() {
+    return 32;
+}
+
+void main() {
+    int a = something();
+}

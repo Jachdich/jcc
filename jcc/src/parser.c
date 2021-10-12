@@ -595,9 +595,29 @@ AST *func_def(LexTokenStream *s, SymTable *scope) {
     }
 }
 
+AST *struct_def(LexTokenStream *s, SymTable *scope) {
+    lex_consume_assert(s, TOK_KSTRUCT);
+    LexToken *name = lex_consume_assert(s, TOK_IDENT);
+    lex_consume_assert(s, TOK_OBRACE);
+    Symbol *
+    while (lex_peek(s)->type != TOK_CBRACE) {
+        LexToken *ty = lex_consume(s);
+        LexToken *member_name = lex_consume_assert(s, TOK_IDENT);
+    }
+    lex_consume_assert(s, TOK_CBRACE);
+    lex_consume_assert(s, TOK_SEMICOLON);
+}
+
+struct a {
+    int c;
+    struct Test b;
+};
+
 int ast_gen(AST *ast, LexTokenStream *s, SymTable *scope) {
     AST *a;
-    if (lex_peek_n(s, 3)->type == TOK_OPAREN) {
+    if (lex_peek(s)->type == TOK_KSTRUCT) {
+        a = struct_def(s, scope);
+    } else if (lex_peek_n(s, 3)->type == TOK_OPAREN) {
         a = func_def(s, scope);
     } else {
         a = globvardef(s, scope);

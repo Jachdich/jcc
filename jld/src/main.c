@@ -8,7 +8,7 @@
 size_t read_file(char *fname, uint8_t **ptr) {
     FILE *fp = fopen(fname, "r");
     if (fp == NULL) {
-        return 1;
+        return 0;
     }
     fseek(fp, 0, SEEK_END);
     size_t fsize = ftell(fp);
@@ -32,7 +32,16 @@ int main(int argc, char **argv) {
     uint8_t *code;
 
     for (int i = 0; i < args.n_ifs; i++) {
-        file_lens[i] = read_file(args.ifnames[i], files + i);
+        if ((file_lens[i] = read_file(args.ifnames[i], files + i)) == 0) {
+            printf("%s: %s: No such file or directory\n", argv[0], args.ifnames[i]);
+            for (int j = 0; j < i; j++) {
+                free(files[j]);
+            }
+            free(files);
+            free(file_lens);
+            free(args.ifnames);
+            exit(1);
+        }
     }
     
     int sz = linker_link(files, args.n_ifs, file_lens, &code);

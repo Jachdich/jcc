@@ -1,11 +1,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <jtools/jobj.h>
 
 #define SP_POS 16
 #define BP_POS 17
 #define SETBITS   0x80000000
 #define UNSETBITS 0x7FFFFFFF
+//#define DEBUG
 
 struct Machine {
     ssize_t regs[18];
@@ -92,7 +94,8 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr, uint8_t *
     m->pcsp = 0;
     while ((unsigned)m->pc < ninstr) {
         struct Instruction instr = stream[m->pc++];
-        /*printf("Pc: %02x, Regs: %08x %08x %08x %08x, opcode: %s %02x, %02x, %02x (%04x) (next qword %08x instr %08x) ",
+#ifdef DEBUG
+        printf("Pc: %02x, Regs: %08x %08x %08x %08x, opcode: %s %02x, %02x, %02x (%04x) (next qword %08x instr %08x) ",
                 m->pc, (int32_t)m->regs[0], (int32_t)m->regs[1], (int32_t)m->regs[2], (int32_t)m->regs[3],
                 op_name(instr.opcode), instr.arg1, instr.arg2, instr.arg3,
                 (signed)instr.arg23, *((int32_t*)(stream + m->pc)), *((int32_t*)(stream + m->pc)) / 4);
@@ -109,7 +112,8 @@ void run(struct Machine *m, struct Instruction *stream, size_t ninstr, uint8_t *
                 printf(" ");
             }
         }
-        printf("BP, SP: %lu %lu\n", m->regs[SP_POS], m->regs[BP_POS]);*/
+        printf("BP, SP: %lu %lu\n", m->regs[SP_POS], m->regs[BP_POS]);
+#endif
 
         switch (instr.opcode) {
             case 0x00: //mov
@@ -410,8 +414,14 @@ int main(int argc, char **argv) {
     fread(contents, 1, fsize, fp);
     fclose(fp);
 
-    struct Instruction *instrs = (struct Instruction *)contents;
-    size_t ninstr = fsize / sizeof(struct Instruction);
+    struct LinkTable table;
+    table_init(&table);
+    uint8_t *code = NULL;
+    struct ObjHeader header;
+    size_t codelen = jobj_process_file(contents, fsize, &header, &code, &table);
+
+    struct Instruction *instrs = (struct Instruction*)code;
+    size_t ninstr = codelen / sizeof(struct Instruction);
 
     uint8_t *stack = malloc(4096);
     
@@ -419,10 +429,13 @@ int main(int argc, char **argv) {
     for (uint8_t i = 0; i < 16; i++) {
         m.regs[i] = 0;
     }
+    
     m.regs[SP_POS] = ((size_t)stack) | SETBITS;
     m.regs[BP_POS] = m.regs[SP_POS];
     run(&m, instrs, ninstr, stack);
+    free(code);
     free(contents);
     free(stack);
+    table_free(&table);
     return 0;
 }

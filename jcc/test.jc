@@ -1,0 +1,21 @@
+#include "stdio.jh"
+
+int get_val(int a) {
+    if (a % 2 == 0) {
+        return a;
+    } else {
+        return 99;
+    }
+}
+
+int main() {
+    for (int i = 0; i < 10; i = i + 1) {
+        println(i);
+    }
+    int j = 0;
+    while (j < 10) {
+        println(get_val(j));
+        j = j + 1;
+    }
+    return 0;
+}

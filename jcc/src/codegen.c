@@ -338,7 +338,8 @@ int cgfunccall(CGState *s, int ident, size_t n_args) {
     if (func->ty != VAR_VOID) {
         reg = reg_alloc(s);
         state_alloc_atleast(s, 7 + 12 + 6 + strlen(label));
-        s->cl += sprintf(s->c + s->cl, "\tpop\t%s\n", s->reg_names[reg]);
+        char suffix = get_suffix(varsize(func->ty));
+        s->cl += sprintf(s->c + s->cl, "\tpop%c\t%s\n", suffix, s->reg_names[reg]);
     }
     s->cl += sprintf(s->c + s->cl, "\tsubi\trsp, %d\n", (int)(n_args * 4));
     
@@ -356,8 +357,10 @@ int cgsetupargs(CGState *s, int *regs, size_t num, VarType *tys) {
 
 int cgret(CGState *s, int reg) {
     state_alloc_atleast(s, 12 + REGSTRLEN + strlen(s->func_ret_jump));
-    s->cl += sprintf(s->c + s->cl, "\tpush\t%s\n", s->reg_names[reg]);
+    char suffix = 'q'; //TODO get_suffix(varsize(sym->ty));
+    s->cl += sprintf(s->c + s->cl, "\tpush%c\t%s\n", suffix, s->reg_names[reg]);
     s->cl += sprintf(s->c + s->cl, "\tjp\t%s\n", s->func_ret_jump);
+    reg_free(s, reg);
 }
 
 int gen_ast(AST *ast, CGState *state, int reg) {

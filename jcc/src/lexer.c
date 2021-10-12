@@ -29,6 +29,9 @@ const LexTokenType kword_types[] = {
     TOK_KCASE, TOK_KBREAK, TOK_KCONTINUE, TOK_KTYPEDEF, TOK_KPRINT,
 };
 
+const char single_char_tokens[] = {'{', '}', '(', ')', ';', ','};
+const LexTokenType single_char_token_types[] = {TOK_OBRACE, TOK_CBRACE, TOK_OPAREN, TOK_CPAREN, TOK_SEMICOLON, TOK_COMMA};
+
 LexTokenType get_keyword(char *s) {
     for (size_t i = 0; i < sizeof(keywords) / sizeof(char*); i++) {
         if (strcmp(s, keywords[i]) == 0) {
@@ -36,6 +39,25 @@ LexTokenType get_keyword(char *s) {
         }
     }
     return TOK_INVALID;
+}
+
+LexTokenType get_single_char(Reader *r) {
+    char c = reader_peek(r);
+    for (unsigned int i = 0; i < sizeof(single_char_tokens); i++) {
+        if (single_char_tokens[i] == c) {
+            reader_consume(r);
+            return single_char_token_types[i];
+        }
+    }
+    return TOK_INVALID;
+}
+
+LexTokenType get_double_char(Reader *r, char maybe, LexTokenType ifA, LexTokenType ifB) {
+    if (reader_peek(r) == maybe) {
+        reader_consume(r);
+        return ifB;
+    }
+    return ifA;
 }
 
 Error lex_read_token(Reader *r, LexToken *tok, int ln) {
@@ -90,36 +112,11 @@ Error lex_read_token(Reader *r, LexToken *tok, int ln) {
         strncpy(str, start, sz - 1);
         str[sz - 1] = 0;
         *tok = (LexToken){str, 0, TOK_STR_LIT, ln};
-    } else if (reader_peek(r) == '=') {
-        reader_consume(r);
-        if (reader_peek(r) == '=') {
-            reader_consume(r);
-            *tok = (LexToken){NULL, 0, TOK_COMPARE, ln};
-        } else {
-            *tok = (LexToken){NULL, 0, TOK_ASSIGN, ln};
-        }
-    } else if (reader_peek(r) == ';') {
-        reader_consume(r);
-        *tok = (LexToken){NULL, 0, TOK_SEMICOLON, ln};
-    } else if (reader_peek(r) == '{') {
-        reader_consume(r);
-        *tok = (LexToken){NULL, 0, TOK_OBRACE, ln};
-    } else if (reader_peek(r) == '}') {
-        reader_consume(r);
-        *tok = (LexToken){NULL, 0, TOK_CBRACE, ln};
-    } else if (reader_peek(r) == '(') {
-        reader_consume(r);
-        *tok = (LexToken){NULL, 0, TOK_OPAREN, ln};
-    } else if (reader_peek(r) == ')') {
-        reader_consume(r);
-        *tok = (LexToken){NULL, 0, TOK_CPAREN, ln};
-    } else if (reader_peek(r) == ',') {
-        reader_consume(r);
-        *tok = (LexToken){NULL, 0, TOK_COMMA, ln};
-    } else if (reader_consume_if(r, '+')) { *tok = (LexToken){NULL, 0, TOK_ADD, ln};
-    } else if (reader_consume_if(r, '-')) { *tok = (LexToken){NULL, 0, TOK_SUB, ln};
-    } else if (reader_consume_if(r, '*')) { *tok = (LexToken){NULL, 0, TOK_MUL, ln};
-    } else if (reader_consume_if(r, '/')) { *tok = (LexToken){NULL, 0, TOK_DIV, ln};
+    } else if (reader_consume_if(r, '=')) { *tok = (LexToken){NULL, 0, get_double_char(r, '=', TOK_ASSIGN, TOK_COMPARE), ln};
+    } else if (reader_consume_if(r, '+')) { *tok = (LexToken){NULL, 0, get_double_char(r, '=', TOK_ADD, TOK_ADD_ASSIGN), ln};
+    } else if (reader_consume_if(r, '-')) { *tok = (LexToken){NULL, 0, get_double_char(r, '=', TOK_SUB, TOK_SUB_ASSIGN), ln};
+    } else if (reader_consume_if(r, '*')) { *tok = (LexToken){NULL, 0, get_double_char(r, '=', TOK_MUL, TOK_MUL_ASSIGN), ln};
+    } else if (reader_consume_if(r, '/')) { *tok = (LexToken){NULL, 0, get_double_char(r, '=', TOK_DIV, TOK_DIV_ASSIGN), ln};
     } else if (reader_consume_if(r, '%')) { *tok = (LexToken){NULL, 0, TOK_MODULO, ln};
     } else if (reader_consume_if(r, '>')) { 
         if (reader_peek(r) == '=') { *tok = (LexToken){NULL, 0, TOK_GTE, ln};
@@ -128,11 +125,13 @@ Error lex_read_token(Reader *r, LexToken *tok, int ln) {
         if (reader_peek(r) == '=') { *tok = (LexToken){NULL, 0, TOK_LTE, ln};
         } else {                     *tok = (LexToken){NULL, 0, TOK_LT, ln}; }
     } else {
-        *tok = (LexToken){NULL, 0, TOK_INVALID, ln};
-        char *buf = malloc(40);
-        sprintf(buf, "Invalid character '%c' in input stream", reader_consume(r));
-        return (Error){1, buf};
-        
+        LexTokenType a = get_single_char(r);
+        *tok = (LexToken){NULL, 0, a, ln};
+        if (a == TOK_INVALID) {
+            char *buf = malloc(40);
+            sprintf(buf, "Invalid character '%c' in input stream", reader_consume(r));
+            return (Error){1, buf};
+        }
     }
     return (Error){0, NULL};
 }
@@ -327,9 +326,16 @@ char *lex_reconstruct_src(LexTokenStream *s) {
     size_t outpos = 0;
     LexToken *t;
     s->pos = s->start;
+    int next_ln = 1;
     do {
         t = lex_consume(s);
         char buf[100];
+        if (next_ln) {
+            next_ln = 0;
+            char nbuf[100];
+            sprintf(nbuf, "%d: ", t->linenum);
+            strcat_alloc(&out, nbuf, &outsz, &outpos);
+        }
         switch (t->type) {
             case TOK_INT:        sprintf(buf, "%lu", t->i); strcat_alloc(&out, buf, &outsz, &outpos); break;
             case TOK_STR_LIT:    sprintf(buf, "\"%s\"", t->str); strcat_alloc(&out, buf, &outsz, &outpos);break;
@@ -350,11 +356,11 @@ char *lex_reconstruct_src(LexTokenStream *s) {
             case TOK_DIV_ASSIGN: strcat_alloc(&out, "/= ", &outsz, &outpos); break;
             case TOK_OPAREN:     strcat_alloc(&out, "(", &outsz, &outpos); break;
             case TOK_CPAREN:     strcat_alloc(&out, ")", &outsz, &outpos); break;
-            case TOK_OBRACE:     strcat_alloc(&out, "{\n", &outsz, &outpos); break;
+            case TOK_OBRACE:     strcat_alloc(&out, "{\n", &outsz, &outpos); next_ln = 1; break;
             case TOK_CBRACE:     strcat_alloc(&out, "}", &outsz, &outpos); break;
-            case TOK_SEMICOLON:  strcat_alloc(&out, ";\n", &outsz, &outpos); break;
+            case TOK_SEMICOLON:  strcat_alloc(&out, ";\n", &outsz, &outpos); next_ln = 1; break;
             case TOK_COMMA:      strcat_alloc(&out, ", ", &outsz, &outpos); break;
-            case TOK_PREPROC:    strcat_alloc(&out, "\n", &outsz, &outpos); strcat_alloc(&out, t->str, &outsz, &outpos); break;
+            case TOK_PREPROC:    strcat_alloc(&out, "\n", &outsz, &outpos); strcat_alloc(&out, t->str, &outsz, &outpos); next_ln = 1; break;
             case TOK_EOF:        strcat_alloc(&out, "", &outsz, &outpos); break;
             case TOK_INVALID:    strcat_alloc(&out, "~", &outsz, &outpos); break;
             case TOK_AND:        strcat_alloc(&out, "&", &outsz, &outpos); break;

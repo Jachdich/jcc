@@ -4,7 +4,7 @@ OBJECTS := $(patsubst src/%,obj/%,$(SOURCES:.c=.o))
 EXENAME := jvm
 
 $(EXENAME): $(OBJECTS)
-	gcc $(OBJECTS) -o $@
+	gcc $(OBJECTS) -ljtools -o $@
 
 obj/%.o: src/%.c $(HEADERS)
 	@mkdir -p obj

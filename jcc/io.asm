@@ -8,3 +8,7 @@ println:
     popq r1
     popq r2
     ret
+
+_start:
+    call main
+    halt

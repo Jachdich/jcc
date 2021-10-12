@@ -41,7 +41,7 @@ size_t jobj_process_file(uint8_t *data, size_t fsize, struct ObjHeader *header, 
     uint8_t *orig_data = data;
     memcpy(header, data, sizeof(*header));
     data += sizeof(*header);
-    printf("aaa %d %d %d\n", header->obj_type, header->unres_sym_len, header->res_sym_len);
+    //printf("aaa %d %d %d\n", header->obj_type, header->unres_sym_len, header->res_sym_len);
 
     if (header->unres_sym_len == 0 && header->res_sym_len == 0) {
         //shortcut, if there's nothing then assume it's all code

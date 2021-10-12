@@ -10,6 +10,10 @@ struct FuncSig {
     int numargs;
 };
 
+struct StructSig {
+    Symbol *vars;
+};
+
 struct Symbol {
     char *s;
     VarType ty;
@@ -18,7 +22,10 @@ struct Symbol {
     int init_value;
     int is_stack;
     int stack_offset;
-    struct FuncSig sig;
+    union {
+        struct FuncSig sig;
+        struct StructSig ssig;
+    };
 };
 
 struct SymTable {

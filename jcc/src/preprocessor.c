@@ -152,6 +152,9 @@ Error preprocess_tokens_internal(LexTokenStream *input, StrMap *defines) {
                     lex_extend_tokens(&out, &between);
                 }
                 free(ident);
+            } else if (strcmp(tok->str, "#debugify")) {
+                lex_consume_assert(input, TOK_KENUM);
+                //while (
             }
         } else if (tok->type == TOK_IDENT) {
             char *found = map_find(defines, tok->str);

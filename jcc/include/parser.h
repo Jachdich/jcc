@@ -76,6 +76,7 @@ enum VarType {
 enum {
     S_VAR,
     S_FUNC,
+    S_STRUCT,
 };
 
 typedef enum ASTType ASTType;

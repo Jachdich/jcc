@@ -14,6 +14,7 @@ int linker_link(uint8_t **input, size_t n, size_t *inp_lens, uint8_t **data) {
     
     for (size_t i = 0; i < n; i++) {
         uint8_t *contents = input[i];
+        printf("%lu %lu %lu\n", i, (size_t)contents, n);
         size_t len = inp_lens[i];
 
         struct LinkTable table;
@@ -25,6 +26,7 @@ int linker_link(uint8_t **input, size_t n, size_t *inp_lens, uint8_t **data) {
             table_free(&total);
             table_free(&table);
             free(total_code);
+            free(code);
             return -1;
         }
         //printf("codelen init %lu\n", len);

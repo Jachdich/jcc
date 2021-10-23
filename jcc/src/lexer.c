@@ -17,6 +17,12 @@ void lex_append_token(LexTokenStream *s, LexToken t) {
     }
 }
 
+void lex_move_token(LexTokenStream *s, LexToken *t) {
+    lex_append_token(s, *t);
+    t->str = NULL;
+    t->whitespace = NULL;
+}
+
 const char *keywords[] = {
     "int", "char", "struct", "void", "enum", "long", "short",
     "return", "if", "else", "do", "while", "for", "switch",
@@ -60,9 +66,9 @@ LexTokenType get_double_char(Reader *r, char maybe, LexTokenType ifA, LexTokenTy
     return ifA;
 }
 Error lex_read_token(Reader *r, LexToken *tok, int ln) {
-    size_t cap = 8;
+    size_t cap = 1;
     size_t pos = 0;
-    char *sp = malloc(8);
+    char *sp = malloc(1);
     while (isspace(reader_peek(r))) { 
         char c = reader_consume(r);
         if (reader_bytes_left(r) == 0) {
@@ -161,7 +167,7 @@ Error lex_tokenise_line(Reader *line, LexTokenStream *s, int ln) {
         }
         LexToken t;
         Error e = lex_read_token(line, &t, ln);
-        if (e.status_code != 0) {
+        if (e.code != 0) {
             return e;
         }
         if ((int)t.type != -1) {
@@ -180,15 +186,15 @@ Error lex_read_tokens(LexTokenStream *s, Reader *reader) {
         lex_tokenise_line(&r, s, ln);
         ln++;
     }
-    lex_append_token(s, (LexToken){NULL, 0, TOK_EOF, ln, ""});
+    lex_append_token(s, (LexToken){NULL, 0, TOK_EOF, ln, NULL});
     s->pos = s->start;
     return (Error){0, NULL};
 }
 
 void lex_init(LexTokenStream *s) {
-    s->start = malloc(sizeof(LexToken) * 64);
+    s->start = malloc(sizeof(LexToken) * 4);
     s->pos = s->start;
-    s->capacity = 64;
+    s->capacity = 4;
 }
 
 LexToken *lex_consume(LexTokenStream *s) {
@@ -230,6 +236,9 @@ void lex_put_back(LexTokenStream *s) {
 void lex_free_token(LexToken *t) {
     if (t->str != NULL) {
         free(t->str);
+    }
+    if (t->whitespace != NULL) {
+        free(t->whitespace);
     }
 }
 
@@ -335,19 +344,19 @@ char *lex_reconstruct_src(LexTokenStream *s) {
     char *out = malloc(64);
     size_t outsz = 64;
     size_t outpos = 0;
-    LexToken *t = lex_peek(s);
     s->pos = s->start;
     int last_ln = 0;
+    LexToken *t = lex_peek(s);
     while (t->type != TOK_EOF) {
         t = lex_consume(s);
         if (t->type == TOK_EOF) break;
         
         char buf[100];
         if (last_ln != t->linenum) {
-            char nbuf[100];
+            char nbuf[1000];
             int pos = 0;
             for (int i = 0; i < t->linenum - last_ln; i++) {
-                pos += sprintf(nbuf + pos, "\n% 3d:│", last_ln + i);
+                pos += sprintf(nbuf + pos, "\n% 3d│", last_ln + i);
             }
             last_ln = t->linenum;
             strcat_alloc(&out, nbuf, &outsz, &outpos);

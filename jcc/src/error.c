@@ -11,7 +11,7 @@ void error_free(Error *e) {
 
 Error error_construct(int status_code, const char *static_msg) {
     Error err;
-    err.status_code = status_code;
+    err.code = status_code;
     err.message = malloc(strlen(static_msg) + 1);
     strcpy(err.message, static_msg);
     return err;

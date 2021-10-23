@@ -98,4 +98,5 @@ LexToken *lex_consume_assert(LexTokenStream *s, LexTokenType ty);
 LexToken *lex_peek_assert(LexTokenStream *s, LexTokenType ty);
 LexToken *lex_peek_n(LexTokenStream *s, int n);
 void lex_put_back(LexTokenStream *s);
+void lex_move_token(LexTokenStream *s, LexToken *t);
 #endif

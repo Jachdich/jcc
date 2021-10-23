@@ -14,10 +14,10 @@ debug: jcc
 	gdb jcc
 
 run: jcc
-	./jcc test.jc
+	./jcc test.c
 
 runprog: jcc test.jc
-	./jcc -o test.asm test.jc
+	./jcc -o test.asm test.c
 	jas test.asm -o test.o
 	jld test.o io.o -o test
 	jvm test

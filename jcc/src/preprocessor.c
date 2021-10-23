@@ -83,14 +83,13 @@ Error read_until_closing(LexTokenStream *input, LexTokenStream *out) {
             }
         }
         if (opening != closing) {
-            lex_append_token(out, *t);
+            lex_move_token(out, t);
         }
-        t->str = NULL;
     }
     if (t->type == TOK_EOF) {
         return error_construct(1, "Error: unclosed #if");
     }
-    lex_append_token(out, (LexToken){NULL, 0, TOK_EOF, -1});
+    lex_append_token(out, (LexToken){NULL, 0, TOK_EOF, -1, NULL});
     return (Error){0, NULL};
 }
 
@@ -132,7 +131,7 @@ Error preprocess_tokens_internal(LexTokenStream *input, StrMap *defines) {
                 LexTokenStream between;
                 lex_init(&between);
                 Error err = read_until_closing(input, &between);
-                if (err.status_code != 0) return err;
+                if (err.code != 0) return err;
                 between.pos = between.start;
                 if (map_find(defines, ident) != NULL) {
                     preprocess_tokens_internal(&between, defines);
@@ -145,7 +144,7 @@ Error preprocess_tokens_internal(LexTokenStream *input, StrMap *defines) {
                 LexTokenStream between;
                 lex_init(&between);
                 Error err = read_until_closing(input, &between);
-                if (err.status_code != 0) return err;
+                if (err.code != 0) return err;
                 between.pos = between.start;
                 if (map_find(defines, ident) == NULL) {
                     preprocess_tokens_internal(&between, defines);
@@ -164,29 +163,26 @@ Error preprocess_tokens_internal(LexTokenStream *input, StrMap *defines) {
                 Reader r;
                 reader_construct_from(&r, found);
                 lex_tokenise_line(&r, &s, -1);
-                lex_append_token(&s, (LexToken){NULL, 0, TOK_EOF, -1});
+                lex_append_token(&s, (LexToken){NULL, 0, TOK_EOF, -1, NULL});
                 s.pos = s.start;
                 //lex_print_tokens(&s);
                 LexToken *t = lex_peek(&s);
                 while (t->type != TOK_EOF) {
                     t = lex_consume(&s);
                     if (t->type != TOK_EOF) {
-                        lex_append_token(&out, *t);
-                        t->str = NULL;
+                        lex_move_token(&out, tok);
                     }
                 }
                 lex_free(&s);
             } else {
-                lex_append_token(&out, *tok);
-                tok->str = NULL;
+                lex_move_token(&out, tok);
             }
         } else {
-            lex_append_token(&out, *tok);
-            tok->str = NULL;
+            lex_move_token(&out, tok);
         }
     }
     lex_free(input);
-    lex_append_token(&out, (LexToken){NULL, 0, TOK_EOF, -1});
+    lex_append_token(&out, (LexToken){NULL, 0, TOK_EOF, -1, NULL});
     input->start = out.start;
     input->pos = out.start;
     input->capacity = out.capacity;

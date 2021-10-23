@@ -2,7 +2,7 @@
 #define __ERROR_H
 
 struct Error {
-    int status_code;
+    int code;
     char *message;
 };
 

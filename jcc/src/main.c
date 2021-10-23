@@ -4,8 +4,8 @@
 #include <jtools/reader.h>
 #include "../include/lexer.h"
 #include "../include/preprocessor.h"
-//#include "../include/parser.h"
-//#include "../include/codegen.h"
+#include "../include/parser.h"
+#include "../include/codegen.h"
 #include "../include/args.h"
 //#include "../include/symtable.h"
 
@@ -36,58 +36,60 @@ int main(int argc, char **argv) {
     LexTokenStream s;
     lex_init(&s);
     Error lex_err = lex_read_tokens(&s, &preproc_r);
-    if (lex_err.status_code != 0) {
+    if (lex_err.code != 0) {
         fprintf(stderr, "%s: %s\n", argv[0], lex_err.message);
         error_free(&lex_err);
         lex_free(&s);
         reader_free(&preproc_r);
-        return lex_err.status_code;
+        return lex_err.code;
     }
     error_free(&lex_err);
     
     Error preproc_err = preprocess_tokens(&s);
-    if (preproc_err.status_code != 0) {
+    if (preproc_err.code != 0) {
         fprintf(stderr, "%s: %s\n", argv[0], preproc_err.message);
         error_free(&preproc_err);
         lex_free(&s);
         reader_free(&preproc_r);
-        return preproc_err.status_code;
+        return preproc_err.code;
     }
     error_free(&preproc_err);
 
-    lex_print_tokens(&s);
+    //lex_print_tokens(&s);
     char *src = lex_reconstruct_src(&s);
-    printf("%s\n", src);
+    printf("%s\n\n", src);
     free(src);
 
-    /*char *all_code = malloc(1024);
+    char *all_code = malloc(1024);
     size_t code_len = 0;
     size_t code_cap = 1024;
 
     s.pos = s.start;
-    SymTable table;
-    sym_init(&table, NULL);
+    //SymTable table;
+    //sym_init(&table, NULL);
     while (1) {
         AST ast;
-        int ast_err = ast_gen(&ast, &s, &table);
-        if (ast_err != 0) {
-            fprintf(stderr, "%s: Parser returned non-zero status %d\n", argv[0], ast_err);
+        Error ast_err = ast_gen(&ast, &s);
+        if (ast_err.code != 0) {
+            fprintf(stderr, "%s: Parser returned non-zero status %d: %s\n", argv[0], ast_err.code, ast_err.message);
             lex_free(&s);
             reader_free(&preproc_r);
             ast_free(&ast);
-            return ast_err;
+            return ast_err.code;
         }
+        
         if (ast.type != AST_INVALID) {
-    
             ast_print(&ast);
             char *code;
-            cg_gen(&ast, &code, &table, args.debug);
+            cg_gen(&ast, &code, args.debug);
             ast_free(&ast);
             size_t clen = strlen(code);
-            while (code_len + clen >= code_cap) {
+            while (code_len + clen + 1 >= code_cap) {
                 all_code = realloc(all_code, code_cap *= 2);
             }
             memcpy(all_code + code_len, code, clen);
+            free(code);
+            all_code[code_len + clen] = 0;
             code_len += clen;
         }
 
@@ -96,10 +98,10 @@ int main(int argc, char **argv) {
         }
     }
 
-    char *defs = malloc(128);
-    size_t defs_len = 0;
-    size_t defs_cap = 128;
-
+    //char *defs = malloc(128);
+    //size_t defs_len = 0;
+    //size_t defs_cap = 128;
+/*
     for (uint32_t i = 0; i < table.pos; i++) {
         if (table.symbols[i].stype == S_VAR) {
             size_t sz = 7 + strlen(table.symbols[i].s);
@@ -108,17 +110,17 @@ int main(int argc, char **argv) {
             }
             defs_len += sprintf(defs + defs_len, "%s: dd %d\n", table.symbols[i].s, table.symbols[i].init_value);
         }
-    }
+    }*/
 
-    while (code_len + defs_len >= code_cap) {
+    /*while (code_len + defs_len >= code_cap) {
         all_code = realloc(all_code, code_cap *= 2);
-    }
-    memcpy(all_code + code_len, defs, defs_len);
-    code_len += defs_len;
-    free(defs);
+    }*/
+    //memcpy(all_code + code_len, defs, defs_len);
+    //code_len += defs_len;
+    //free(defs);
 
     if (args.ofname == NULL) {
-        printf("%s", all_code);
+        printf("%s\n", all_code);
     } else {
         FILE *fp = fopen(args.ofname, "w");
         if (fp == NULL) {
@@ -128,7 +130,7 @@ int main(int argc, char **argv) {
         fclose(fp);
     }
     
-    free(all_code);*/
+    free(all_code);
     lex_free(&s);
     reader_free(&preproc_r);
     return 0;

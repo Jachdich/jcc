@@ -1,6 +1,5 @@
-void println(int);
-void _start() {
-    for (int i = 0; i < 10; i = i + 1) {
-        println(i);
-    }
+int main() {
+    int a = 3 + 4 * 5 == 6 * 7 + 3 - 4;
+    int b;
+    b = 32;
 }
